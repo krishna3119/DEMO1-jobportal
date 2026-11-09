@@ -16,7 +16,11 @@ import {
   ArrowLeft,
   Mail,
   Phone,
-  AlertCircle
+  AlertCircle,
+  Coins,
+  Lock,
+  Unlock,
+  X
 } from "lucide-react"
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion"
 import { useAuth } from "@/context/AuthContext"
@@ -25,14 +29,14 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Skeleton } from "@/components/ui/skeleton"
 import PageTransition from "@/components/PageTransition"
 
 export default function JobApplicants() {
   const { id } = useParams()
-  const { user } = useAuth()
+  const { user, profile, refreshProfile } = useAuth()
   const shouldReduceMotion = useReducedMotion()
 
   const [job, setJob] = useState(null)
@@ -48,7 +52,13 @@ export default function JobApplicants() {
   const [pendingAction, setPendingAction] = useState(null)
   const [updatingStatus, setUpdatingStatus] = useState(false)
 
+  const [unlockModalApp, setUnlockModalApp] = useState(null)
+  const [unlockingApp, setUnlockingApp] = useState(false)
+  const [unlockError, setUnlockError] = useState("")
+
   const [expandedHistory, setExpandedHistory] = useState(new Set())
+
+  const recruiterCredits = profile?.credits ?? 50
 
   const loadApplicants = useCallback(async () => {
     try {
@@ -93,6 +103,16 @@ export default function JobApplicants() {
   }, [id, user?.id, loadApplicants])
 
   const handleViewResume = async (appId, resumePath) => {
+    if (!resumePath) {
+      alert("Resume not available.")
+      return
+    }
+
+    if (resumePath.startsWith("http://") || resumePath.startsWith("https://")) {
+      window.open(resumePath, "_blank", "noopener,noreferrer")
+      return
+    }
+
     setResumeLoadingId(appId)
     try {
       const { data, error } = await supabase.storage
@@ -107,6 +127,61 @@ export default function JobApplicants() {
       alert("Failed to access applicant resume: " + (err.message || "File unavailable"))
     } finally {
       setResumeLoadingId(null)
+    }
+  }
+
+  const handleOpenUnlockModal = (applicant) => {
+    setUnlockError("")
+    setUnlockModalApp(applicant)
+  }
+
+  const handleConfirmUnlock = async () => {
+    if (!unlockModalApp) return
+
+    if (recruiterCredits < 10) {
+      setUnlockError("Insufficient credits. 10 points required to unlock resume.")
+      return
+    }
+
+    setUnlockingApp(true)
+    setUnlockError("")
+
+    try {
+      const { data, error } = await supabase.rpc("unlock_candidate_resume", {
+        p_application_id: unlockModalApp.id,
+      })
+
+      if (error) throw error
+
+      setApplicants((prev) =>
+        prev.map((item) =>
+          item.id === unlockModalApp.id
+            ? {
+                ...item,
+                is_unlocked: true,
+                resume_url: data?.resume_url || item.resume_path,
+              }
+            : item
+        )
+      )
+
+      await refreshProfile()
+      const targetResume = data?.resume_url || unlockModalApp.resume_path || unlockModalApp.resume_url
+      const candidateName = unlockModalApp.full_name || "Candidate"
+      const remaining = data?.remaining_credits ?? (recruiterCredits - 10)
+
+      setSuccessMsg(
+        `Resume unlocked for ${candidateName}! 10 points deducted. Remaining balance: ${remaining} points.`
+      )
+      setUnlockModalApp(null)
+
+      if (targetResume) {
+        handleViewResume(unlockModalApp.id, targetResume)
+      }
+    } catch (err) {
+      setUnlockError(err.message || "Failed to unlock resume.")
+    } finally {
+      setUnlockingApp(false)
     }
   }
 
@@ -228,7 +303,11 @@ export default function JobApplicants() {
             </p>
           )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-800 text-xs font-semibold">
+            <Coins className="h-3.5 w-3.5 text-amber-600" />
+            <span>{recruiterCredits} Points</span>
+          </div>
           <Badge variant={job?.status === "open" ? "default" : "secondary"} className="text-xs">
             {job?.status === "open" ? "Active Listing" : job?.status || ""}
           </Badge>
@@ -279,57 +358,65 @@ export default function JobApplicants() {
                     <span className="uppercase font-bold text-primary">{pendingAction.targetStatus}</span>
                   </p>
                 </div>
-                <Badge className={`uppercase text-xs font-bold ${statusBadgeVariants[pendingAction.targetStatus] || ""}`}>
-                  → {pendingAction.targetStatus}
+                <Badge className={`uppercase text-[10px] font-bold ${statusBadgeVariants[pendingAction.targetStatus] || ""}`}>
+                  {pendingAction.targetStatus}
                 </Badge>
               </div>
 
-              {pendingAction.requiresConfirmation && (
-                <div className="bg-amber-500/10 border border-amber-500/30 text-amber-900 text-xs p-3 rounded-xl flex items-start gap-2">
-                  <AlertCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
-                  <p>
-                    <strong>Important Decision:</strong> &apos;{pendingAction.targetStatus}&apos; is a final status.
-                    Once confirmed, this candidate will be notified and recruiters cannot alter the decision.
+              {pendingAction.targetStatus === "selected" && (
+                <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-3 text-xs text-emerald-900 space-y-1">
+                  <div className="flex items-center gap-1.5 font-bold">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                    <span>Candidate Notification</span>
+                  </div>
+                  <p className="text-[11px] text-emerald-800 leading-relaxed">
+                    Selecting this candidate updates their status and sends an in-app notification and email update.
+                  </p>
+                </div>
+              )}
+
+              {pendingAction.targetStatus === "rejected" && (
+                <div className="bg-rose-500/10 border border-rose-500/30 rounded-xl p-3 text-xs text-rose-900 space-y-1">
+                  <div className="flex items-center gap-1.5 font-bold">
+                    <XCircle className="h-4 w-4 text-rose-600" />
+                    <span>Application Decision</span>
+                  </div>
+                  <p className="text-[11px] text-rose-800 leading-relaxed">
+                    This will mark the application as rejected. The candidate will see their updated status in their dashboard.
                   </p>
                 </div>
               )}
 
               <div className="space-y-1.5">
-                <label htmlFor="action-note" className="text-xs font-semibold text-foreground">
-                  Internal Feedback / Note (Optional):
+                <label className="text-xs font-semibold text-foreground">
+                  Internal Decision Note (Optional)
                 </label>
                 <Textarea
-                  id="action-note"
-                  placeholder="e.g. Performed exceptionally in system design round..."
+                  placeholder="e.g. Cleared technical interview round with high scores..."
+                  rows={2}
                   value={pendingAction.note}
-                  onChange={(e) => setPendingAction({ ...pendingAction, note: e.target.value })}
-                  rows={3}
+                  onChange={(e) => setPendingAction((prev) => ({ ...prev, note: e.target.value }))}
                   className="text-xs"
                 />
               </div>
 
-              <div className="flex justify-end gap-2 pt-2 border-t">
+              <div className="flex items-center justify-end gap-2 pt-2 border-t">
                 <Button
-                  type="button"
                   variant="outline"
                   size="sm"
                   onClick={() => setPendingAction(null)}
                   disabled={updatingStatus}
-                  className="text-xs h-9"
+                  className="text-xs h-8"
                 >
                   Cancel
                 </Button>
                 <Button
-                  type="button"
                   size="sm"
-                  variant={pendingAction.targetStatus === "rejected" ? "destructive" : "default"}
                   onClick={handleConfirmStatusChange}
                   disabled={updatingStatus}
-                  className="text-xs h-9 font-semibold shadow-sm"
+                  className="text-xs h-8 shadow-sm font-semibold"
                 >
-                  {updatingStatus
-                    ? "Updating Status..."
-                    : `Confirm ${pendingAction.targetStatus.charAt(0).toUpperCase() + pendingAction.targetStatus.slice(1)}`}
+                  {updatingStatus ? "Saving Decision..." : `Confirm ${pendingAction.targetStatus.toUpperCase()}`}
                 </Button>
               </div>
             </Card>
@@ -337,33 +424,30 @@ export default function JobApplicants() {
         )}
       </AnimatePresence>
 
-      <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between bg-muted/40 p-3 rounded-xl border">
-        <div className="relative w-full sm:w-72">
-          <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search candidate name, email..."
+            placeholder="Search by candidate name, phone, email..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 bg-background h-9 text-xs sm:text-sm"
+            className="pl-9 h-9 text-xs"
           />
         </div>
 
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-xs font-semibold text-muted-foreground mr-1 hidden sm:inline">Filter:</span>
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
+          <span className="text-xs text-muted-foreground font-medium flex items-center gap-1 mr-1">
+            <Filter className="h-3 w-3" /> Status:
+          </span>
           {["all", "applied", "shortlisted", "selected", "rejected"].map((st) => (
             <Button
               key={st}
               size="sm"
               variant={statusFilter === st ? "default" : "outline"}
-              className="h-8 text-xs capitalize"
               onClick={() => setStatusFilter(st)}
+              className="text-xs h-8 capitalize shrink-0 font-medium"
             >
               {st}
-              {st !== "all" && (
-                <span className="ml-1 opacity-75 font-mono text-[10px]">
-                  ({applicants.filter((a) => a.status === st).length})
-                </span>
-              )}
             </Button>
           ))}
         </div>
@@ -374,9 +458,9 @@ export default function JobApplicants() {
           {[1, 2, 3].map((i) => (
             <Card key={i} className="p-5 space-y-3">
               <div className="flex justify-between items-start">
-                <div className="space-y-2 flex-1">
-                  <Skeleton className="h-6 w-1/4" />
-                  <Skeleton className="h-4 w-1/3" />
+                <div className="space-y-2 w-1/2">
+                  <Skeleton className="h-5 w-40" />
+                  <Skeleton className="h-4 w-60" />
                 </div>
                 <Skeleton className="h-8 w-24" />
               </div>
@@ -414,6 +498,8 @@ export default function JobApplicants() {
             const sortedHistory = (app.history || []).sort(
               (a, b) => new Date(a.created_at) - new Date(b.created_at)
             )
+            const isUnlocked = Boolean(app.is_unlocked)
+            const resumePathOrUrl = app.resume_url || app.resume_path
 
             return (
               <motion.div
@@ -435,6 +521,15 @@ export default function JobApplicants() {
                         >
                           {app.status}
                         </Badge>
+                        {isUnlocked ? (
+                          <Badge variant="outline" className="text-[10px] text-emerald-700 border-emerald-500/40 bg-emerald-500/10 font-semibold gap-1">
+                            <Unlock className="h-3 w-3" /> Unlocked
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-[10px] text-amber-700 border-amber-500/40 bg-amber-500/10 font-semibold gap-1">
+                            <Lock className="h-3 w-3" /> Locked
+                          </Badge>
+                        )}
                       </div>
 
                       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
@@ -451,16 +546,33 @@ export default function JobApplicants() {
                     </div>
 
                     <div className="flex items-center gap-2 shrink-0 pt-1 sm:pt-0">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-8 text-xs gap-1.5 font-medium"
-                        onClick={() => handleViewResume(app.id, app.resume_path)}
-                        disabled={resumeLoadingId === app.id}
-                      >
-                        <FileText className="h-3.5 w-3.5 text-primary" />
-                        <span>{resumeLoadingId === app.id ? "Opening..." : "View Resume"}</span>
-                      </Button>
+                      {isUnlocked ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 text-xs gap-1.5 font-medium"
+                          onClick={() => handleViewResume(app.id, resumePathOrUrl)}
+                          disabled={resumeLoadingId === app.id}
+                        >
+                          <FileText className="h-3.5 w-3.5 text-primary" />
+                          <span>{resumeLoadingId === app.id ? "Opening..." : "View Resume"}</span>
+                        </Button>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <div className="blur-xs select-none opacity-40 pointer-events-none hidden sm:flex items-center gap-1 text-[11px] border rounded-md px-2 py-1 bg-muted">
+                            <FileText className="h-3 w-3" />
+                            <span>Resume_Candidate.pdf</span>
+                          </div>
+                          <Button
+                            size="sm"
+                            className="h-8 text-xs gap-1.5 font-semibold bg-amber-600 hover:bg-amber-700 text-white shadow-sm"
+                            onClick={() => handleOpenUnlockModal(app)}
+                          >
+                            <Lock className="h-3.5 w-3.5" />
+                            <span>Unlock Resume (10 Points)</span>
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -521,69 +633,54 @@ export default function JobApplicants() {
                       )}
 
                       {(app.status === "selected" || app.status === "rejected") && (
-                        <span className="text-muted-foreground text-[11px] italic">
-                          Decision finalized ({app.status}). Final decisions are permanent.
+                        <span className="text-[11px] text-muted-foreground italic">
+                          Decision finalized ({app.status})
                         </span>
                       )}
                     </div>
 
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 text-xs text-muted-foreground gap-1"
-                      onClick={() => toggleHistory(app.id)}
-                    >
-                      <span>Audit History ({sortedHistory.length})</span>
-                      {isHistoryOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-                    </Button>
+                    {sortedHistory.length > 0 && (
+                      <button
+                        onClick={() => toggleHistory(app.id)}
+                        className="text-[11px] text-primary hover:underline font-medium flex items-center gap-1 cursor-pointer"
+                      >
+                        <Clock className="h-3 w-3" />
+                        <span>Timeline ({sortedHistory.length})</span>
+                        {isHistoryOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                      </button>
+                    )}
                   </div>
 
                   <AnimatePresence>
-                    {isHistoryOpen && (
+                    {isHistoryOpen && sortedHistory.length > 0 && (
                       <motion.div
                         initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, height: 0 }}
                         animate={shouldReduceMotion ? { opacity: 1 } : { opacity: 1, height: "auto" }}
                         exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, height: 0 }}
-                        transition={{ duration: 0.18 }}
-                        className="overflow-hidden"
+                        transition={{ duration: 0.15 }}
+                        className="bg-muted/30 rounded-xl p-3 border space-y-2 mt-2"
                       >
-                        <div className="mt-2 p-3.5 bg-muted/30 rounded-xl border text-xs space-y-2">
-                          <p className="font-semibold text-foreground text-[11px] uppercase tracking-wider">
-                            Status Progression Audit Log:
-                          </p>
-                          {sortedHistory.length === 0 ? (
-                            <p className="text-muted-foreground text-xs">No transition records logged.</p>
-                          ) : (
-                            <div className="space-y-2 divide-y divide-border/60">
-                              {sortedHistory.map((item, idx) => (
-                                <div key={item.id || idx} className="pt-2 first:pt-0">
-                                  <div className="flex items-center justify-between text-muted-foreground">
-                                    <span className="font-medium text-foreground">
-                                      {item.from_status ? (
-                                        <>
-                                          <span className="uppercase">{item.from_status}</span> →{" "}
-                                          <span className="uppercase font-bold text-primary">{item.to_status}</span>
-                                        </>
-                                      ) : (
-                                        <>
-                                          Initial submission as{" "}
-                                          <span className="uppercase font-bold text-primary">{item.to_status}</span>
-                                        </>
-                                      )}
-                                    </span>
-                                    <span className="text-[11px]">
-                                      {new Date(item.created_at).toLocaleString()}
-                                    </span>
-                                  </div>
-                                  {item.note && (
-                                    <p className="mt-1 text-muted-foreground italic bg-background/60 p-2 rounded-lg border text-[11px]">
-                                      Recruiter note: &ldquo;{item.note}&rdquo;
-                                    </p>
-                                  )}
-                                </div>
-                              ))}
+                        <h4 className="text-[11px] font-bold text-foreground uppercase tracking-wider">
+                          Status Transition History
+                        </h4>
+                        <div className="space-y-1.5">
+                          {sortedHistory.map((item) => (
+                            <div key={item.id} className="text-xs flex items-start justify-between gap-2 border-b pb-1 last:border-b-0">
+                              <div>
+                                <span className="font-semibold uppercase text-primary">
+                                  {item.to_status}
+                                </span>
+                                {item.note && (
+                                  <span className="text-muted-foreground ml-1.5 italic text-[11px]">
+                                    — &ldquo;{item.note}&rdquo;
+                                  </span>
+                                )}
+                              </div>
+                              <span className="text-[10px] text-muted-foreground shrink-0 font-mono">
+                                {new Date(item.created_at).toLocaleString()}
+                              </span>
                             </div>
-                          )}
+                          ))}
                         </div>
                       </motion.div>
                     )}
@@ -594,6 +691,120 @@ export default function JobApplicants() {
           })}
         </div>
       )}
+
+      <AnimatePresence>
+        {unlockModalApp && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => !unlockingApp && setUnlockModalApp(null)}
+              className="fixed inset-0 bg-background/80 backdrop-blur-sm"
+            />
+
+            <motion.div
+              initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.95, y: 12 }}
+              animate={shouldReduceMotion ? { opacity: 1 } : { opacity: 1, scale: 1, y: 0 }}
+              exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.95, y: 12 }}
+              transition={{ duration: 0.2 }}
+              className="relative w-full max-w-md rounded-2xl border bg-card p-6 shadow-2xl z-10 space-y-4"
+            >
+              <div className="flex items-center justify-between pb-2 border-b">
+                <div className="flex items-center gap-2">
+                  <div className="h-8 w-8 rounded-full bg-amber-500/10 text-amber-600 flex items-center justify-center">
+                    <Lock className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <h3 className="font-heading font-bold text-base text-foreground">
+                      Unlock Candidate Resume
+                    </h3>
+                    <p className="text-xs text-muted-foreground">{unlockModalApp.full_name}</p>
+                  </div>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 rounded-full"
+                  onClick={() => setUnlockModalApp(null)}
+                  disabled={unlockingApp}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+
+              <div className="flex items-center justify-between p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs">
+                <div className="flex items-center gap-1.5 font-medium text-amber-900">
+                  <Coins className="h-4 w-4 text-amber-600" />
+                  <span>Resume Unlock Fee</span>
+                </div>
+                <div className="font-bold text-amber-900">
+                  10 Credit Points
+                </div>
+              </div>
+
+              <div className="space-y-2 text-xs text-foreground/80 leading-relaxed">
+                <p>
+                  10 credit points will be deducted to view this resume. Proceed?
+                </p>
+                <div className="flex justify-between py-1 border-t border-b text-[11px]">
+                  <span className="text-muted-foreground">Your Current Balance:</span>
+                  <span className="font-bold font-mono text-foreground">{recruiterCredits} Points</span>
+                </div>
+              </div>
+
+              {recruiterCredits < 10 && (
+                <Alert variant="destructive" className="text-xs py-2.5">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription className="space-y-2">
+                    <p>Insufficient credits! You need at least 10 points to unlock this resume.</p>
+                    <Link to="/dashboard/credits" className="inline-block">
+                      <Button size="sm" variant="outline" className="h-7 text-xs bg-card hover:bg-muted text-foreground">
+                        Recharge Credits →
+                      </Button>
+                    </Link>
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {unlockError && (
+                <Alert variant="destructive" className="text-xs py-2">
+                  <AlertCircle className="h-3.5 w-3.5" />
+                  <AlertDescription>{unlockError}</AlertDescription>
+                </Alert>
+              )}
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setUnlockModalApp(null)}
+                  disabled={unlockingApp}
+                  className="text-xs h-9"
+                >
+                  Cancel
+                </Button>
+                {recruiterCredits < 10 ? (
+                  <Link to="/dashboard/credits">
+                    <Button size="sm" className="text-xs h-9 font-semibold">
+                      Buy Credits
+                    </Button>
+                  </Link>
+                ) : (
+                  <Button
+                    size="sm"
+                    onClick={handleConfirmUnlock}
+                    disabled={unlockingApp}
+                    className="text-xs h-9 bg-amber-600 hover:bg-amber-700 text-white font-semibold shadow-sm"
+                  >
+                    {unlockingApp ? "Unlocking..." : "Confirm & Deduct 10 Points"}
+                  </Button>
+                )}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </PageTransition>
   )
 }

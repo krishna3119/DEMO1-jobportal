@@ -13,7 +13,8 @@ import {
   X,
   ExternalLink,
   ShieldCheck,
-  AlertCircle
+  AlertCircle,
+  Coins
 } from "lucide-react"
 import { useAuth } from "@/context/AuthContext"
 import { supabase } from "@/lib/supabase"
@@ -29,7 +30,7 @@ import PageTransition from "@/components/PageTransition"
 
 export default function JobDetails() {
   const { id } = useParams()
-  const { user, profile } = useAuth()
+  const { user, profile, refreshProfile } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const shouldReduceMotion = useReducedMotion()
@@ -40,7 +41,6 @@ export default function JobDetails() {
   const [savingLoading, setSavingLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState("")
 
-  // Application State
   const [existingApplication, setExistingApplication] = useState(null)
   const [showApplyModal, setShowApplyModal] = useState(false)
   const [fullName, setFullName] = useState("")
@@ -50,6 +50,7 @@ export default function JobDetails() {
   const [applyError, setApplyError] = useState("")
   const [applyLoading, setApplyLoading] = useState(false)
   const [applySuccess, setApplySuccess] = useState(false)
+  const [remainingBalance, setRemainingBalance] = useState(null)
 
   useEffect(() => {
     async function loadJobDetails() {
@@ -67,11 +68,9 @@ export default function JobDetails() {
         if (error) throw error
         setJob(data)
 
-        // Check if candidate saved this job & check if already applied
         if (user?.id && profile?.role === "candidate") {
           setFullName(profile.full_name || "")
 
-          // Check saved
           const { data: savedData } = await supabase
             .from("saved_jobs")
             .select("id")
@@ -81,7 +80,6 @@ export default function JobDetails() {
 
           setIsSaved(Boolean(savedData))
 
-          // Check application
           const { data: appData } = await supabase
             .from("applications")
             .select("id, status, created_at")
@@ -139,7 +137,6 @@ export default function JobDetails() {
     }
   }
 
-  // Handle file selection with client validation
   const handleFileChange = (e) => {
     setApplyError("")
     const file = e.target.files?.[0]
@@ -162,13 +159,18 @@ export default function JobDetails() {
     setResumeFile(file)
   }
 
-  // Submit Application
   const handleSubmitApplication = async (e) => {
     e.preventDefault()
     setApplyError("")
 
     if (!user) {
       navigate("/login", { state: { from: location } })
+      return
+    }
+
+    const currentPoints = profile?.credits ?? 50
+    if (currentPoints < 5) {
+      setApplyError("Insufficient credits. You need at least 5 points to apply.")
       return
     }
 
@@ -184,7 +186,6 @@ export default function JobDetails() {
 
     setApplyLoading(true)
     try {
-      // 1. Upload resume to private storage bucket in user's personal directory
       const sanitizedFilename = resumeFile.name.replace(/[^a-zA-Z0-9.-]/g, "_")
       const filePath = `${user.id}/${Date.now()}_${sanitizedFilename}`
 
@@ -197,27 +198,26 @@ export default function JobDetails() {
 
       if (uploadError) throw new Error("Resume upload failed: " + uploadError.message)
 
-      // 2. Call atomic apply_to_job RPC
-      const { data: appId, error: rpcError } = await supabase.rpc("apply_to_job", {
+      const { data: result, error: rpcError } = await supabase.rpc("apply_to_job", {
         p_job_id: id,
+        p_resume_url: filePath,
         p_full_name: fullName.trim(),
         p_phone: phone.trim(),
         p_cover_note: coverNote.trim() || null,
-        p_resume_path: filePath,
       })
 
       if (rpcError) throw rpcError
 
-      // If NULL was returned (company ran out of credits and jobs were paused)
-      if (!appId) {
-        setApplyError("This job is not accepting applications right now.")
-        setJob((prev) => (prev ? { ...prev, status: "paused" } : prev))
-        setShowApplyModal(false)
-        return
-      }
+      const newRemaining = result?.remaining_credits ?? (currentPoints - 5)
+      setRemainingBalance(newRemaining)
+      await refreshProfile()
 
       setApplySuccess(true)
-      setExistingApplication({ id: appId, status: "applied", created_at: new Date().toISOString() })
+      setExistingApplication({
+        id: result?.application_id || "applied",
+        status: "applied",
+        created_at: new Date().toISOString(),
+      })
       setShowApplyModal(false)
     } catch (err) {
       setApplyError(err.message || "Failed to submit application.")
@@ -258,134 +258,133 @@ export default function JobDetails() {
   if (errorMsg || !job) {
     return (
       <div className="max-w-xl mx-auto py-12 text-center space-y-4">
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>{errorMsg || "Job posting could not be found."}</AlertDescription>
-        </Alert>
+        <div className="h-12 w-12 rounded-full bg-destructive/10 text-destructive flex items-center justify-center mx-auto">
+          <AlertCircle className="h-6 w-6" />
+        </div>
+        <h2 className="text-xl font-heading font-bold text-foreground">Position Unavailable</h2>
+        <p className="text-sm text-muted-foreground">{errorMsg || "The requested job was not found."}</p>
         <Link to="/jobs">
-          <Button variant="outline">← Back to All Jobs</Button>
+          <Button variant="outline" className="mt-2 text-xs">
+            Browse All Openings
+          </Button>
         </Link>
       </div>
     )
   }
 
-  const isRecruiterOwner = profile?.role === "recruiter" && job.posted_by === user?.id
   const isJobOpen = job.status === "open"
+  const candidateCredits = profile?.credits ?? 50
 
   return (
     <PageTransition className="max-w-4xl mx-auto py-4 sm:py-6 space-y-6">
       <div>
         <Link
           to="/jobs"
-          className="inline-flex items-center text-xs sm:text-sm text-muted-foreground hover:text-foreground font-medium transition-colors"
+          className="inline-flex items-center text-xs text-muted-foreground hover:text-foreground font-medium transition-colors"
         >
-          ← Back to all job openings
+          ← Back to All Job Postings
         </Link>
       </div>
 
       {applySuccess && (
-        <Alert className="border-emerald-500/40 bg-emerald-500/10 text-emerald-800 ">
-          <CheckCircle2 className="h-4 w-4 text-emerald-600 " />
-          <AlertDescription>
-            🎉 Your application has been submitted successfully! You can track its progress in your dashboard.
+        <Alert className="border-emerald-500/40 bg-emerald-500/10 text-emerald-800 text-xs py-3">
+          <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+          <AlertDescription className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <span>
+              Application successfully submitted! <strong>5 credit points deducted</strong>. Remaining points balance:{" "}
+              <strong>{remainingBalance !== null ? remainingBalance : candidateCredits} points</strong>.
+            </span>
+            <button
+              onClick={() => setApplySuccess(false)}
+              className="text-xs font-semibold underline cursor-pointer self-start sm:self-auto"
+            >
+              Dismiss
+            </button>
           </AlertDescription>
         </Alert>
       )}
 
-      {/* Header Hero Card */}
-      <Card className="p-5 sm:p-6 shadow-sm border bg-card">
-        <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
-          <div className="space-y-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="font-heading text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
-                {job.title}
-              </h1>
-              <Badge
-                variant={job.status === "open" ? "default" : "secondary"}
-                className={job.status === "open" ? "bg-emerald-600 text-white hover:bg-emerald-600" : ""}
-              >
-                {job.status === "open" ? "Actively Hiring" : job.status === "paused" ? "Paused" : "Closed"}
-              </Badge>
+      <Card className="shadow-sm border">
+        <CardContent className="p-6 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-2xl sm:text-3xl font-heading font-extrabold tracking-tight text-foreground">
+                  {job.title}
+                </h1>
+                <Badge variant={isJobOpen ? "default" : "secondary"} className="text-[11px] capitalize">
+                  {job.status}
+                </Badge>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground pt-0.5">
+                <span className="flex items-center gap-1 font-medium text-foreground">
+                  <Building2 className="h-3.5 w-3.5 text-primary" />
+                  {job.company?.name || "Company"}
+                </span>
+                <span className="flex items-center gap-1">
+                  <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
+                  {job.location}
+                </span>
+                <span className="flex items-center gap-1">
+                  <Briefcase className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="capitalize">{job.job_type}</span>
+                </span>
+                <span className="flex items-center gap-1">
+                  <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+                  Posted {new Date(job.created_at).toLocaleDateString()}
+                </span>
+              </div>
             </div>
 
-            <p className="text-sm font-medium text-muted-foreground flex flex-wrap items-center gap-x-2">
-              <span className="font-semibold text-foreground flex items-center gap-1">
-                <Building2 className="h-4 w-4 text-primary" />
-                {job.company?.name}
-              </span>
-              <span>&bull;</span>
-              <span className="flex items-center gap-1">
-                <MapPin className="h-4 w-4 text-muted-foreground" />
-                {job.location}
-              </span>
-            </p>
+            <div className="flex items-center gap-2 shrink-0">
+              {profile?.role === "candidate" && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleToggleSave}
+                  disabled={savingLoading}
+                  className="h-9 px-3 gap-1.5 text-xs font-medium"
+                >
+                  {isSaved ? (
+                    <>
+                      <BookmarkCheck className="h-4 w-4 text-primary fill-primary" />
+                      <span>Saved</span>
+                    </>
+                  ) : (
+                    <>
+                      <Bookmark className="h-4 w-4 text-muted-foreground" />
+                      <span>Save Job</span>
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            {profile?.role === "candidate" && (
-              <Button
-                variant={isSaved ? "secondary" : "outline"}
-                size="sm"
-                onClick={handleToggleSave}
-                disabled={savingLoading}
-                className="gap-1.5 h-9"
-              >
-                {isSaved ? (
-                  <>
-                    <BookmarkCheck className="h-4 w-4 text-primary fill-primary" />
-                    <span>Saved</span>
-                  </>
-                ) : (
-                  <>
-                    <Bookmark className="h-4 w-4" />
-                    <span>Save Job</span>
-                  </>
-                )}
-              </Button>
+          <div className="flex flex-wrap gap-2 pt-2 border-t">
+            {job.salary_range && (
+              <Badge variant="secondary" className="text-xs font-semibold">
+                💰 {job.salary_range}
+              </Badge>
             )}
-
-            {isRecruiterOwner && (
-              <div className="flex gap-2">
-                <Link to={`/dashboard/jobs/${job.id}/applications`}>
-                  <Button variant="outline" size="sm" className="h-9">
-                    View Applicants
-                  </Button>
-                </Link>
-                <Link to="/dashboard/my-jobs">
-                  <Button variant="outline" size="sm" className="h-9">
-                    Manage Job
-                  </Button>
-                </Link>
-              </div>
+            {job.experience_level && (
+              <Badge variant="outline" className="text-xs capitalize">
+                Level: {job.experience_level}
+              </Badge>
             )}
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2 pt-4 mt-4 border-t text-xs">
-          <Badge variant="secondary" className="capitalize gap-1">
-            <Briefcase className="h-3 w-3" />
-            {job.job_type.replace("_", " ")}
-          </Badge>
-          <Badge variant="outline">🎯 {job.experience_level} years experience</Badge>
-          {(job.salary_min || job.salary_max) && (
-            <Badge variant="outline" className="font-semibold text-emerald-600  bg-emerald-500/5 border-emerald-500/20">
-              💰 Salary: {job.salary_min ? `₹${job.salary_min.toLocaleString("en-IN")}` : ""}
-              {job.salary_max ? ` - ₹${job.salary_max.toLocaleString("en-IN")}` : ""} / yr
+            <Badge variant="outline" className="text-xs">
+              Role: {job.job_type}
             </Badge>
-          )}
-          <Badge variant="outline" className="text-muted-foreground gap-1">
-            <Calendar className="h-3 w-3" />
-            Posted on {new Date(job.created_at).toLocaleDateString()}
-          </Badge>
-        </div>
+          </div>
+        </CardContent>
       </Card>
 
-      {/* Main Grid: Job Details & Sidebar */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="md:col-span-2 space-y-6">
           <Card className="shadow-sm">
             <CardHeader className="pb-3">
-              <CardTitle className="text-lg font-heading font-bold">About the Position</CardTitle>
+              <CardTitle className="text-base font-heading font-bold">Role Description</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4 text-sm leading-relaxed whitespace-pre-line text-foreground/80">
               {job.description}
@@ -395,7 +394,7 @@ export default function JobDetails() {
           {job.requirements && (
             <Card className="shadow-sm">
               <CardHeader className="pb-3">
-                <CardTitle className="text-lg font-heading font-bold">Candidate Requirements & Skills</CardTitle>
+                <CardTitle className="text-base font-heading font-bold">Requirements & Qualifications</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4 text-sm leading-relaxed whitespace-pre-line text-foreground/80">
                 {job.requirements}
@@ -403,7 +402,6 @@ export default function JobDetails() {
             </Card>
           )}
 
-          {/* Application Call-to-action Section */}
           <Card className="border border-primary/20 bg-gradient-to-br from-primary/5 via-card to-card p-6 shadow-sm">
             <div className="text-center space-y-3">
               <h3 className="font-heading font-bold text-lg text-foreground">
@@ -422,7 +420,7 @@ export default function JobDetails() {
               ) : profile?.role === "candidate" ? (
                 existingApplication ? (
                   <div className="space-y-2">
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-500/10 text-emerald-700  font-semibold text-xs border border-emerald-500/30">
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-500/10 text-emerald-700 font-semibold text-xs border border-emerald-500/30">
                       <CheckCircle2 className="h-4 w-4" />
                       Applied on {new Date(existingApplication.created_at).toLocaleDateString()}
                     </div>
@@ -442,14 +440,22 @@ export default function JobDetails() {
                     </p>
                   </div>
                 ) : (
-                  <div>
-                    <Button
-                      size="lg"
-                      onClick={() => setShowApplyModal(true)}
-                      className="shadow-md shadow-primary/25 h-11 px-8 font-semibold"
-                    >
-                      Apply Now for this Position →
-                    </Button>
+                  <div className="space-y-3">
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-800 text-xs font-medium">
+                      <Coins className="h-3.5 w-3.5 text-amber-600" />
+                      <span>Applying costs <strong>5 credit points</strong></span>
+                      <span className="text-muted-foreground">•</span>
+                      <span>Balance: <strong>{candidateCredits} pts</strong></span>
+                    </div>
+                    <div>
+                      <Button
+                        size="lg"
+                        onClick={() => setShowApplyModal(true)}
+                        className="shadow-md shadow-primary/25 h-11 px-8 font-semibold"
+                      >
+                        Apply Now for this Position →
+                      </Button>
+                    </div>
                   </div>
                 )
               ) : (
@@ -461,14 +467,13 @@ export default function JobDetails() {
           </Card>
         </div>
 
-        {/* Right Sidebar: Company Card */}
         <div className="space-y-6">
           <Card className="shadow-sm">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base font-heading font-bold">About {job.company?.name}</CardTitle>
                 {job.company?.verification_status === "approved" && (
-                  <span className="flex items-center gap-1 text-[11px] text-emerald-600  font-medium">
+                  <span className="flex items-center gap-1 text-[11px] text-emerald-600 font-medium">
                     <ShieldCheck className="h-3.5 w-3.5" />
                     Verified
                   </span>
@@ -508,11 +513,9 @@ export default function JobDetails() {
         </div>
       </div>
 
-      {/* Animated Modal Dialog for Application */}
       <AnimatePresence>
         {showApplyModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            {/* Backdrop */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -521,7 +524,6 @@ export default function JobDetails() {
               className="fixed inset-0 bg-background/80 backdrop-blur-sm"
             />
 
-            {/* Modal Dialog Content */}
             <motion.div
               initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.95, y: 12 }}
               animate={shouldReduceMotion ? { opacity: 1 } : { opacity: 1, scale: 1, y: 0 }}
@@ -546,6 +548,25 @@ export default function JobDetails() {
                   <X className="h-4 w-4" />
                 </Button>
               </div>
+
+              <div className="flex items-center justify-between p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs">
+                <div className="flex items-center gap-1.5 font-medium text-amber-900">
+                  <Coins className="h-4 w-4 text-amber-600" />
+                  <span>Applying costs <strong>5 credit points</strong></span>
+                </div>
+                <div className="font-semibold text-amber-900">
+                  Balance: {candidateCredits} pts
+                </div>
+              </div>
+
+              {candidateCredits < 5 && (
+                <Alert variant="destructive" className="text-xs py-2">
+                  <AlertCircle className="h-3.5 w-3.5" />
+                  <AlertDescription>
+                    Insufficient credits. You need at least 5 points to apply.
+                  </AlertDescription>
+                </Alert>
+              )}
 
               {applyError && (
                 <Alert variant="destructive" className="text-xs py-2">
@@ -586,7 +607,7 @@ export default function JobDetails() {
                   <Label htmlFor="app-resume" className="text-xs font-semibold flex items-center justify-between">
                     <span>Resume (PDF, Max 2 MB) *</span>
                     {resumeFile && (
-                      <span className="text-[11px] text-emerald-600  font-medium">
+                      <span className="text-[11px] text-emerald-600 font-medium">
                         ✓ {resumeFile.name}
                       </span>
                     )}
@@ -637,8 +658,12 @@ export default function JobDetails() {
                   >
                     Cancel
                   </Button>
-                  <Button type="submit" disabled={applyLoading} className="text-xs h-9 shadow-sm shadow-primary/20">
-                    {applyLoading ? "Submitting Application..." : "Submit Application"}
+                  <Button
+                    type="submit"
+                    disabled={applyLoading || candidateCredits < 5}
+                    className="text-xs h-9 shadow-sm shadow-primary/20"
+                  >
+                    {applyLoading ? "Submitting Application..." : "Submit Application (5 Pts)"}
                   </Button>
                 </div>
               </form>

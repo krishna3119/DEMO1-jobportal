@@ -17,7 +17,7 @@ export function ProtectedRoute({ children }) {
     return <Navigate to="/login" state={{ from: location }} replace />
   }
 
-  if (profile && profile.role === null) {
+  if (!profile || !profile.is_profile_completed || profile.role === null) {
     return <Navigate to="/onboarding" replace />
   }
 
@@ -44,7 +44,7 @@ export function RoleRoute({ allowedRoles, children }) {
     return <Navigate to="/login" state={{ from: location }} replace />
   }
 
-  if (profile && profile.role === null) {
+  if (!profile || !profile.is_profile_completed || profile.role === null) {
     return <Navigate to="/onboarding" replace />
   }
 
@@ -81,7 +81,7 @@ export function AdminRoute({ children }) {
     return <Navigate to="/login" state={{ from: location }} replace />
   }
 
-  if (profile && profile.role === null) {
+  if (!profile || !profile.is_profile_completed || profile.role === null) {
     return <Navigate to="/onboarding" replace />
   }
 
@@ -104,13 +104,16 @@ export function PublicOnlyRoute({ children }) {
   }
 
   if (user) {
-    if (profile && profile.role === null) {
+    if (!profile || !profile.is_profile_completed || profile.role === null) {
       return <Navigate to="/onboarding" replace />
     }
     if (profile?.role === "admin") {
       return <Navigate to="/admin" replace />
     }
-    return <Navigate to="/dashboard" replace />
+    if (profile?.role === "recruiter") {
+      return <Navigate to="/dashboard" replace />
+    }
+    return <Navigate to="/jobs" replace />
   }
 
   return children ? children : <Outlet />
@@ -131,11 +134,14 @@ export function OnboardingRoute({ children }) {
     return <Navigate to="/login" replace />
   }
 
-  if (profile && profile.role !== null) {
+  if (profile && profile.is_profile_completed && profile.role !== null) {
     if (profile.role === "admin") {
       return <Navigate to="/admin" replace />
     }
-    return <Navigate to="/dashboard" replace />
+    if (profile.role === "recruiter") {
+      return <Navigate to="/dashboard" replace />
+    }
+    return <Navigate to="/jobs" replace />
   }
 
   return children ? children : <Outlet />

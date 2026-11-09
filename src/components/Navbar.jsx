@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { Link, NavLink, useNavigate } from "react-router-dom"
-import { Briefcase, Menu, X, Sparkles, User, LogOut } from "lucide-react"
+import { Briefcase, Menu, X, Sparkles, User, LogOut, Coins } from "lucide-react"
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion"
 import { useAuth } from "@/context/AuthContext"
 import { Button } from "@/components/ui/button"
@@ -35,6 +35,7 @@ export default function Navbar() {
   }
 
   const role = profile?.role
+  const userCredits = profile?.credits ?? 50
   const adminDisplayName = profile?.full_name?.trim() || "Administrator"
   const userDisplayName =
     role === "admin"
@@ -114,6 +115,10 @@ export default function Navbar() {
         <div className="hidden md:flex items-center space-x-3">
           {user ? (
             <div className="flex items-center space-x-3 pl-2 border-l">
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-800 text-xs font-semibold">
+                <Coins className="h-3.5 w-3.5 text-amber-600" />
+                <span>{userCredits} pts</span>
+              </div>
               <ErrorBoundary compact fallback={<span className="text-xs text-muted-foreground p-1">🔔</span>}>
                 <NotificationBell />
               </ErrorBoundary>
@@ -153,6 +158,12 @@ export default function Navbar() {
 
         <div className="flex md:hidden items-center space-x-2">
           {user && (
+            <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-800 text-[11px] font-semibold">
+              <Coins className="h-3 w-3 text-amber-600" />
+              <span>{userCredits}</span>
+            </div>
+          )}
+          {user && (
             <ErrorBoundary compact fallback={<span className="text-xs text-muted-foreground p-1">🔔</span>}>
               <NotificationBell />
             </ErrorBoundary>
@@ -191,11 +202,17 @@ export default function Navbar() {
                     <p className="text-[10px] text-muted-foreground uppercase">{role || "User"}</p>
                   </div>
                 </div>
-                {role && (
-                  <Badge className={`uppercase text-[9px] font-bold tracking-wider ${roleBadgeVariants[role] || ""}`}>
-                    {role}
-                  </Badge>
-                )}
+                <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-800 text-[10px] font-semibold">
+                    <Coins className="h-3 w-3 text-amber-600" />
+                    <span>{userCredits} pts</span>
+                  </div>
+                  {role && (
+                    <Badge className={`uppercase text-[9px] font-bold tracking-wider ${roleBadgeVariants[role] || ""}`}>
+                      {role}
+                    </Badge>
+                  )}
+                </div>
               </div>
             )}
 
