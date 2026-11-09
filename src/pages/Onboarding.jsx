@@ -24,6 +24,18 @@ export default function Onboarding() {
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
+    if (profile?.is_profile_completed && profile?.role) {
+      if (profile.role === "admin") {
+        navigate("/admin", { replace: true })
+      } else if (profile.role === "recruiter") {
+        navigate("/dashboard", { replace: true })
+      } else {
+        navigate("/jobs", { replace: true })
+      }
+    }
+  }, [profile, navigate])
+
+  useEffect(() => {
     async function loadUserData() {
       try {
         const { data: { user: currentUser } } = await supabase.auth.getUser()
