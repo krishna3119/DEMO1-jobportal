@@ -40,6 +40,11 @@ export default function PhoneOtpForm({ mode = "login" }) {
     }
   }, [countdown])
 
+  const rawPhoneDigits = phoneNumber.replace(/\D/g, "")
+  const isIndianPhone = countryCode === "+91"
+  const hasPhoneLengthError = isIndianPhone && rawPhoneDigits.length > 0 && rawPhoneDigits.length !== 10
+  const isSendOtpDisabled = loading || (isIndianPhone ? rawPhoneDigits.length !== 10 : rawPhoneDigits.length < 7)
+
   const fullNormalizedNumber = phoneNumber.startsWith("+")
     ? normalizePhoneNumber(phoneNumber)
     : normalizePhoneNumber(`${countryCode}${phoneNumber.replace(/\D/g, "")}`)
@@ -49,13 +54,14 @@ export default function PhoneOtpForm({ mode = "login" }) {
     setErrorMsg("")
     setInfoMsg("")
 
-    if (!phoneNumber.trim()) {
+    const rawDigits = phoneNumber.replace(/\D/g, "")
+    if (!rawDigits) {
       setErrorMsg("Please enter your mobile phone number.")
       return
     }
 
-    if (!isValidPhoneNumber(fullNormalizedNumber)) {
-      setErrorMsg("Please enter a valid 10-digit mobile number.")
+    if (isIndianPhone ? rawDigits.length !== 10 : !isValidPhoneNumber(fullNormalizedNumber)) {
+      setErrorMsg("Invalid mobile number. Please enter a valid 10-digit number.")
       return
     }
 
@@ -303,12 +309,17 @@ export default function PhoneOtpForm({ mode = "login" }) {
             autoComplete="tel"
           />
         </div>
+        {hasPhoneLengthError && (
+          <p className="text-xs text-destructive font-medium">
+            Invalid mobile number. Please enter a valid 10-digit number.
+          </p>
+        )}
         <p className="text-[11px] text-muted-foreground">
           Enter your 10-digit Indian mobile number to receive an OTP.
         </p>
       </div>
 
-      <Button type="submit" className="w-full" disabled={loading}>
+      <Button type="submit" className="w-full" disabled={isSendOtpDisabled}>
         {loading ? "Sending OTP..." : "Send OTP"}
       </Button>
 

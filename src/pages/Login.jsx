@@ -60,6 +60,11 @@ export default function Login() {
   const [countdown, setCountdown] = useState(30)
   const [resending, setResending] = useState(false)
 
+  const rawPhoneDigits = phoneNumber.replace(/\D/g, "")
+  const isIndianPhone = countryCode === "+91"
+  const hasPhoneLengthError = isIndianPhone && rawPhoneDigits.length > 0 && rawPhoneDigits.length !== 10
+  const isSendPhoneOtpDisabled = loading || (isIndianPhone ? rawPhoneDigits.length !== 10 : rawPhoneDigits.length < 7)
+
   const formattedPhone = phoneNumber.startsWith("+")
     ? normalizePhoneNumber(phoneNumber)
     : normalizePhoneNumber(`${countryCode}${phoneNumber.replace(/\D/g, "")}`)
@@ -140,8 +145,8 @@ export default function Login() {
       return
     }
 
-    if (rawDigits.length !== 10 && !isValidPhoneNumber(formattedPhone)) {
-      setErrorMsg("Please enter a valid 10-digit mobile number.")
+    if (isIndianPhone ? rawDigits.length !== 10 : !isValidPhoneNumber(formattedPhone)) {
+      setErrorMsg("Invalid mobile number. Please enter a valid 10-digit number.")
       return
     }
 
@@ -400,6 +405,11 @@ export default function Login() {
                         />
                       </div>
                     </div>
+                    {hasPhoneLengthError && (
+                      <p className="text-xs text-destructive font-medium">
+                        Invalid mobile number. Please enter a valid 10-digit number.
+                      </p>
+                    )}
                     <p className="text-[11px] text-muted-foreground">
                       We will dispatch a 6-digit OTP verification code via SMS.
                     </p>
@@ -407,7 +417,7 @@ export default function Login() {
 
                   <Button
                     type="submit"
-                    disabled={loading}
+                    disabled={isSendPhoneOtpDisabled}
                     className="w-full h-11 text-sm font-semibold shadow-md shadow-primary/20 gap-2"
                   >
                     <span>{loading ? "Sending code..." : "Send Verification Code"}</span>

@@ -58,7 +58,7 @@ export default function JobApplicants() {
 
   const [expandedHistory, setExpandedHistory] = useState(new Set())
 
-  const recruiterCredits = profile?.credits ?? 50
+  const recruiterCredits = profile?.credits ?? 500
 
   const loadApplicants = useCallback(async () => {
     try {

@@ -13,8 +13,7 @@ import {
   X,
   ExternalLink,
   ShieldCheck,
-  AlertCircle,
-  Coins
+  AlertCircle
 } from "lucide-react"
 import { useAuth } from "@/context/AuthContext"
 import { supabase } from "@/lib/supabase"
@@ -30,7 +29,7 @@ import PageTransition from "@/components/PageTransition"
 
 export default function JobDetails() {
   const { id } = useParams()
-  const { user, profile, refreshProfile } = useAuth()
+  const { user, profile } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const shouldReduceMotion = useReducedMotion()
@@ -50,7 +49,6 @@ export default function JobDetails() {
   const [applyError, setApplyError] = useState("")
   const [applyLoading, setApplyLoading] = useState(false)
   const [applySuccess, setApplySuccess] = useState(false)
-  const [remainingBalance, setRemainingBalance] = useState(null)
 
   useEffect(() => {
     async function loadJobDetails() {
@@ -70,6 +68,7 @@ export default function JobDetails() {
 
         if (user?.id && profile?.role === "candidate") {
           setFullName(profile.full_name || "")
+          setPhone(profile.phone || "")
 
           const { data: savedData } = await supabase
             .from("saved_jobs")
@@ -168,12 +167,6 @@ export default function JobDetails() {
       return
     }
 
-    const currentPoints = profile?.credits ?? 50
-    if (currentPoints < 5) {
-      setApplyError("Insufficient credits. You need at least 5 points to apply.")
-      return
-    }
-
     if (!fullName.trim() || !phone.trim()) {
       setApplyError("Please provide your full name and phone number.")
       return
@@ -207,10 +200,6 @@ export default function JobDetails() {
       })
 
       if (rpcError) throw rpcError
-
-      const newRemaining = result?.remaining_credits ?? (currentPoints - 5)
-      setRemainingBalance(newRemaining)
-      await refreshProfile()
 
       setApplySuccess(true)
       setExistingApplication({
@@ -273,7 +262,6 @@ export default function JobDetails() {
   }
 
   const isJobOpen = job.status === "open"
-  const candidateCredits = profile?.credits ?? 50
 
   return (
     <PageTransition className="max-w-4xl mx-auto py-4 sm:py-6 space-y-6">
@@ -291,8 +279,7 @@ export default function JobDetails() {
           <CheckCircle2 className="h-4 w-4 text-emerald-600" />
           <AlertDescription className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <span>
-              Application successfully submitted! <strong>5 credit points deducted</strong>. Remaining points balance:{" "}
-              <strong>{remainingBalance !== null ? remainingBalance : candidateCredits} points</strong>.
+              Application successfully submitted! The hiring team has received your application and resume.
             </span>
             <button
               onClick={() => setApplySuccess(false)}
@@ -441,11 +428,9 @@ export default function JobDetails() {
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-800 text-xs font-medium">
-                      <Coins className="h-3.5 w-3.5 text-amber-600" />
-                      <span>Applying costs <strong>5 credit points</strong></span>
-                      <span className="text-muted-foreground">•</span>
-                      <span>Balance: <strong>{candidateCredits} pts</strong></span>
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-800 text-xs font-semibold">
+                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                      <span>100% Free Application for Candidates</span>
                     </div>
                     <div>
                       <Button
@@ -549,24 +534,10 @@ export default function JobDetails() {
                 </Button>
               </div>
 
-              <div className="flex items-center justify-between p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs">
-                <div className="flex items-center gap-1.5 font-medium text-amber-900">
-                  <Coins className="h-4 w-4 text-amber-600" />
-                  <span>Applying costs <strong>5 credit points</strong></span>
-                </div>
-                <div className="font-semibold text-amber-900">
-                  Balance: {candidateCredits} pts
-                </div>
+              <div className="flex items-center gap-1.5 p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-xs text-emerald-900 font-medium">
+                <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                <span>Free Application • Zero points charged to candidate</span>
               </div>
-
-              {candidateCredits < 5 && (
-                <Alert variant="destructive" className="text-xs py-2">
-                  <AlertCircle className="h-3.5 w-3.5" />
-                  <AlertDescription>
-                    Insufficient credits. You need at least 5 points to apply.
-                  </AlertDescription>
-                </Alert>
-              )}
 
               {applyError && (
                 <Alert variant="destructive" className="text-xs py-2">
@@ -660,10 +631,10 @@ export default function JobDetails() {
                   </Button>
                   <Button
                     type="submit"
-                    disabled={applyLoading || candidateCredits < 5}
+                    disabled={applyLoading}
                     className="text-xs h-9 shadow-sm shadow-primary/20"
                   >
-                    {applyLoading ? "Submitting Application..." : "Submit Application (5 Pts)"}
+                    {applyLoading ? "Submitting Application..." : "Submit Application"}
                   </Button>
                 </div>
               </form>

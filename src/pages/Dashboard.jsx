@@ -22,7 +22,7 @@ import PageTransition from "@/components/PageTransition"
 export default function Dashboard() {
   const { user, profile } = useAuth()
   const role = profile?.role || "candidate"
-  const userCredits = profile?.credits ?? 50
+  const userCredits = profile?.credits ?? 500
   const shouldReduceMotion = useReducedMotion()
 
   const [creditBalance, setCreditBalance] = useState(null)
@@ -132,10 +132,12 @@ export default function Dashboard() {
           </p>
         </div>
         <div className="flex items-center gap-2.5 flex-wrap">
-          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-800 text-xs font-semibold">
-            <Coins className="h-3.5 w-3.5 text-amber-600" />
-            <span>{userCredits} Points Balance</span>
-          </div>
+          {role === "recruiter" && (
+            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-800 text-xs font-semibold">
+              <Coins className="h-3.5 w-3.5 text-amber-600" />
+              <span>{userCredits} Points Balance</span>
+            </div>
+          )}
           <span className="text-xs text-muted-foreground font-medium">Account Role:</span>
           <Badge className={`uppercase text-[10px] font-bold tracking-wider ${roleBadgeVariants[role] || ""}`}>
             {role}
@@ -143,7 +145,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+      <div className={`grid grid-cols-1 md:grid-cols-2 ${role === "recruiter" ? "lg:grid-cols-4" : "lg:grid-cols-3"} gap-5`}>
         <Card className="shadow-sm">
           <CardHeader className="pb-3">
             <div className="flex items-center gap-2.5">
@@ -180,40 +182,6 @@ export default function Dashboard() {
 
         {role === "candidate" && (
           <>
-            <Card className="shadow-sm">
-              <CardHeader className="pb-3">
-                <div className="flex justify-between items-start">
-                  <div className="flex items-center gap-2.5">
-                    <div className="h-9 w-9 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center font-bold">
-                      <Coins className="h-4 w-4" />
-                    </div>
-                    <div>
-                      <CardTitle className="text-base font-heading font-bold">Credit Points</CardTitle>
-                      <CardDescription className="text-xs">Available balance</CardDescription>
-                    </div>
-                  </div>
-                  <Badge variant="outline" className="text-[10px] font-mono">
-                    5 pts / apply
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3 pt-0">
-                <div className="text-3xl font-heading font-extrabold text-primary">
-                  <AnimatedCounter value={userCredits} suffix=" Points" />
-                </div>
-                <p className="text-[11px] text-muted-foreground leading-relaxed">
-                  5 credit points are automatically deducted when submitting an application to verified employers.
-                </p>
-                <div className="pt-1">
-                  <Link to="/jobs">
-                    <Button size="sm" variant="outline" className="w-full text-xs h-8 font-semibold gap-1.5">
-                      <Briefcase className="h-3.5 w-3.5" /> Explore Open Jobs
-                    </Button>
-                  </Link>
-                </div>
-              </CardContent>
-            </Card>
-
             <motion.div whileHover={shouldReduceMotion ? {} : { y: -2 }} transition={{ duration: 0.15 }}>
               <Card className="shadow-sm h-full flex flex-col justify-between">
                 <CardHeader className="pb-3">
