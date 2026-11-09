@@ -40,10 +40,8 @@ export default function PhoneOtpForm({ mode = "login" }) {
     }
   }, [countdown])
 
-  const rawPhoneDigits = phoneNumber.replace(/\D/g, "")
-  const isIndianPhone = countryCode === "+91"
-  const hasPhoneLengthError = isIndianPhone && rawPhoneDigits.length > 0 && rawPhoneDigits.length !== 10
-  const isSendOtpDisabled = loading || (isIndianPhone ? rawPhoneDigits.length !== 10 : rawPhoneDigits.length < 7)
+  const hasPhoneLengthError = phoneNumber.length > 0 && phoneNumber.length < 10
+  const isSendOtpDisabled = loading || phoneNumber.length !== 10
 
   const fullNormalizedNumber = phoneNumber.startsWith("+")
     ? normalizePhoneNumber(phoneNumber)
@@ -60,8 +58,8 @@ export default function PhoneOtpForm({ mode = "login" }) {
       return
     }
 
-    if (isIndianPhone ? rawDigits.length !== 10 : !isValidPhoneNumber(fullNormalizedNumber)) {
-      setErrorMsg("Invalid mobile number. Please enter a valid 10-digit number.")
+    if (rawDigits.length !== 10) {
+      setErrorMsg("Invalid mobile number. Please enter a valid 10-digit mobile number.")
       return
     }
 
@@ -300,18 +298,19 @@ export default function PhoneOtpForm({ mode = "login" }) {
           <Input
             id="phone-number"
             type="tel"
-            inputMode="tel"
-            placeholder="98765 43210"
+            inputMode="numeric"
+            placeholder="9876543210"
+            maxLength={10}
             className="flex-1 font-mono text-sm"
             value={phoneNumber}
-            onChange={(e) => setPhoneNumber(e.target.value)}
+            onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, "").slice(0, 10))}
             required
             autoComplete="tel"
           />
         </div>
         {hasPhoneLengthError && (
           <p className="text-xs text-destructive font-medium">
-            Invalid mobile number. Please enter a valid 10-digit number.
+            Invalid mobile number. Please enter a valid 10-digit mobile number.
           </p>
         )}
         <p className="text-[11px] text-muted-foreground">

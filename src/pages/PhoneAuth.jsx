@@ -81,10 +81,8 @@ export default function PhoneAuth() {
     }
   }, [step])
 
-  const rawPhoneDigits = phoneNumber.replace(/\D/g, "")
-  const isIndianPhone = countryCode === "+91"
-  const hasPhoneLengthError = isIndianPhone && rawPhoneDigits.length > 0 && rawPhoneDigits.length !== 10
-  const isSendOtpDisabled = loading || googleLoading || (isIndianPhone ? rawPhoneDigits.length !== 10 : rawPhoneDigits.length < 7)
+  const hasPhoneLengthError = phoneNumber.length > 0 && phoneNumber.length < 10
+  const isSendOtpDisabled = loading || googleLoading || phoneNumber.length !== 10
 
   const formattedPhone = phoneNumber.startsWith("+")
     ? normalizePhoneNumber(phoneNumber)
@@ -118,8 +116,8 @@ export default function PhoneAuth() {
       return
     }
 
-    if (isIndianPhone ? rawDigits.length !== 10 : !isValidPhoneNumber(formattedPhone)) {
-      setErrorMsg("Invalid mobile number. Please enter a valid 10-digit number.")
+    if (rawDigits.length !== 10) {
+      setErrorMsg("Invalid mobile number. Please enter a valid 10-digit mobile number.")
       return
     }
 
@@ -310,10 +308,10 @@ export default function PhoneAuth() {
                         type="tel"
                         inputMode="numeric"
                         autoComplete="tel"
-                        placeholder="98765 43210"
-                        maxLength={14}
+                        placeholder="9876543210"
+                        maxLength={10}
                         value={phoneNumber}
-                        onChange={(e) => setPhoneNumber(e.target.value)}
+                        onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, "").slice(0, 10))}
                         required
                         className="h-11 text-base sm:text-sm font-medium tracking-wide"
                       />
@@ -321,7 +319,7 @@ export default function PhoneAuth() {
                   </div>
                   {hasPhoneLengthError && (
                     <p className="text-xs text-destructive font-medium">
-                      Invalid mobile number. Please enter a valid 10-digit number.
+                      Invalid mobile number. Please enter a valid 10-digit mobile number.
                     </p>
                   )}
                   <p className="text-[11px] text-muted-foreground">

@@ -10,11 +10,7 @@ BEGIN
     RETURN NEW;
   END IF;
 
-  IF (OLD.is_unlocked IS DISTINCT FROM NEW.is_unlocked)
-     AND OLD.status = NEW.status
-     AND OLD.job_id = NEW.job_id
-     AND OLD.candidate_id = NEW.candidate_id
-     AND OLD.company_id = NEW.company_id THEN
+  IF (OLD.is_unlocked IS DISTINCT FROM NEW.is_unlocked) THEN
     RETURN NEW;
   END IF;
 
