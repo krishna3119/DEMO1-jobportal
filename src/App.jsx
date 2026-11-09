@@ -12,6 +12,8 @@ import MyApplications from "@/pages/MyApplications"
 import JobApplicants from "@/pages/JobApplicants"
 import RecruiterCredits from "@/pages/RecruiterCredits"
 import ContactUs from "@/pages/ContactUs"
+import Login from "@/pages/Login"
+import Signup from "@/pages/Signup"
 import PhoneAuth from "@/pages/PhoneAuth"
 import ForgotPassword from "@/pages/ForgotPassword"
 import ResetPassword from "@/pages/ResetPassword"
@@ -101,12 +103,20 @@ const router = createBrowserRouter([
         path: "login",
         element: (
           <PublicOnlyRoute>
-            <PhoneAuth />
+            <Login />
           </PublicOnlyRoute>
         ),
       },
       {
         path: "signup",
+        element: (
+          <PublicOnlyRoute>
+            <Signup />
+          </PublicOnlyRoute>
+        ),
+      },
+      {
+        path: "phone-auth",
         element: (
           <PublicOnlyRoute>
             <PhoneAuth />

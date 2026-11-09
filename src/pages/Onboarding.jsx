@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
-import { UserCheck, Building2, CheckCircle2, ShieldCheck, ArrowRight, Phone } from "lucide-react"
+import { UserCheck, Building2, CheckCircle2, ShieldCheck, ArrowRight, Phone, Mail } from "lucide-react"
 import { motion, useReducedMotion } from "framer-motion"
 import { useAuth } from "@/context/AuthContext"
 import { supabase } from "@/lib/supabase"
@@ -19,6 +19,8 @@ export default function Onboarding() {
 
   const [fullName, setFullName] = useState("")
   const [phoneNumber, setPhoneNumber] = useState("")
+  const [email, setEmail] = useState("")
+  const [isPhoneVerified, setIsPhoneVerified] = useState(false)
   const [selectedRole, setSelectedRole] = useState(null)
   const [errorMsg, setErrorMsg] = useState("")
   const [loading, setLoading] = useState(false)
@@ -41,8 +43,13 @@ export default function Onboarding() {
         const { data: { user: currentUser } } = await supabase.auth.getUser()
         const activeUser = currentUser || user
         if (activeUser) {
+          const rawEmail = activeUser.email || profile?.email || ""
+          setEmail(rawEmail)
+
           const rawPhone = activeUser.phone || profile?.phone || ""
           setPhoneNumber(rawPhone)
+          setIsPhoneVerified(Boolean(activeUser.phone || profile?.phone))
+
           const existingName =
             profile?.full_name ||
             activeUser.user_metadata?.full_name ||
@@ -57,7 +64,7 @@ export default function Onboarding() {
       }
     }
     loadUserData()
-  }, [user, profile])
+  }, [user, profile, fullName])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -81,7 +88,7 @@ export default function Onboarding() {
         throw new Error("Active session not found. Please log in again.")
       }
 
-      const activePhone = activeUser.phone || phoneNumber || profile?.phone || null
+      const activePhone = (phoneNumber || activeUser.phone || profile?.phone || "").trim() || null
 
       const { error: upsertError } = await supabase
         .from("profiles")
@@ -140,7 +147,7 @@ export default function Onboarding() {
       <form onSubmit={handleSubmit} className="space-y-6">
         <Card className="border bg-card/95 shadow-sm p-5 space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 sm:col-span-2">
               <Label htmlFor="fullName" className="text-xs font-semibold">
                 Full Name <span className="text-destructive">*</span>
               </Label>
@@ -156,19 +163,60 @@ export default function Onboarding() {
               />
             </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="phone" className="text-xs font-semibold">
-                Verified Mobile Number
-              </Label>
+            {email && (
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="email" className="text-xs font-semibold">
+                    Email Address
+                  </Label>
+                  <span className="text-[10px] text-emerald-600 font-semibold flex items-center gap-0.5">
+                    <CheckCircle2 className="h-3 w-3" /> Verified
+                  </span>
+                </div>
+                <div className="relative">
+                  <Mail className="h-4 w-4 absolute left-3 top-3.5 text-muted-foreground" />
+                  <Input
+                    id="email"
+                    type="email"
+                    value={email}
+                    disabled
+                    className="h-11 pl-9 bg-muted/40 font-medium text-sm text-foreground cursor-not-allowed"
+                  />
+                </div>
+              </div>
+            )}
+
+            <div className={`space-y-1.5 ${!email ? "sm:col-span-2" : ""}`}>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="phone" className="text-xs font-semibold">
+                  {isPhoneVerified ? "Verified Mobile Number" : "Mobile Number (Optional)"}
+                </Label>
+                {isPhoneVerified && (
+                  <span className="text-[10px] text-emerald-600 font-semibold flex items-center gap-0.5">
+                    <CheckCircle2 className="h-3 w-3" /> Verified
+                  </span>
+                )}
+              </div>
               <div className="relative">
                 <Phone className="h-4 w-4 absolute left-3 top-3.5 text-muted-foreground" />
-                <Input
-                  id="phone"
-                  type="text"
-                  value={phoneNumber ? formatIndianDisplay(phoneNumber) : "Loading..."}
-                  disabled
-                  className="h-11 pl-9 bg-muted/50 font-medium text-sm text-foreground cursor-not-allowed"
-                />
+                {isPhoneVerified ? (
+                  <Input
+                    id="phone"
+                    type="text"
+                    value={formatIndianDisplay(phoneNumber)}
+                    disabled
+                    className="h-11 pl-9 bg-muted/40 font-medium text-sm text-foreground cursor-not-allowed"
+                  />
+                ) : (
+                  <Input
+                    id="phone"
+                    type="tel"
+                    placeholder="e.g. 98765 43210"
+                    value={phoneNumber}
+                    onChange={(e) => setPhoneNumber(e.target.value)}
+                    className="h-11 pl-9 font-medium text-sm text-foreground"
+                  />
+                )}
               </div>
             </div>
           </div>
@@ -266,7 +314,7 @@ export default function Onboarding() {
                 ? "Setting up profile..."
                 : selectedRole
                 ? `Continue as ${selectedRole === "candidate" ? "Candidate" : "Recruiter"}`
-                : "Complete Profile"}
+                : "Complete Profile & Continue"}
             </span>
             <ArrowRight className="h-4 w-4" />
           </Button>
