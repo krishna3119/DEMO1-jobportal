@@ -203,11 +203,12 @@ export default function Signup() {
         try {
           await supabase.from("profiles").upsert({
             id: data.user.id,
+            email: data.user.email || null,
             full_name: phoneFullName.trim(),
             phone: formattedPhone,
             updated_at: new Date().toISOString(),
           })
-        } catch (_) {}
+        } catch {}
       }
 
       navigate("/onboarding", { replace: true })

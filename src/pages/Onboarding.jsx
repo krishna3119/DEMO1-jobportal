@@ -4,7 +4,7 @@ import { UserCheck, Building2, CheckCircle2, ShieldCheck, ArrowRight, Phone, Mai
 import { motion, useReducedMotion } from "framer-motion"
 import { useAuth } from "@/context/AuthContext"
 import { supabase } from "@/lib/supabase"
-import { formatIndianDisplay } from "@/lib/phoneUtils"
+import { formatIndianDisplay, normalizePhoneNumber } from "@/lib/phoneUtils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -21,6 +21,7 @@ export default function Onboarding() {
   const [phoneNumber, setPhoneNumber] = useState("")
   const [email, setEmail] = useState("")
   const [isPhoneVerified, setIsPhoneVerified] = useState(false)
+  const [isEmailVerified, setIsEmailVerified] = useState(false)
   const [selectedRole, setSelectedRole] = useState(null)
   const [errorMsg, setErrorMsg] = useState("")
   const [loading, setLoading] = useState(false)
@@ -45,6 +46,7 @@ export default function Onboarding() {
         if (activeUser) {
           const rawEmail = activeUser.email || profile?.email || ""
           setEmail(rawEmail)
+          setIsEmailVerified(Boolean(activeUser.email || profile?.email))
 
           const rawPhone = activeUser.phone || profile?.phone || ""
           setPhoneNumber(rawPhone)
@@ -55,8 +57,8 @@ export default function Onboarding() {
             activeUser.user_metadata?.full_name ||
             activeUser.user_metadata?.name ||
             ""
-          if (existingName && !fullName) {
-            setFullName(existingName)
+          if (existingName) {
+            setFullName((prev) => prev || existingName)
           }
         }
       } catch (err) {
@@ -64,7 +66,7 @@ export default function Onboarding() {
       }
     }
     loadUserData()
-  }, [user, profile, fullName])
+  }, [user, profile])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -88,13 +90,22 @@ export default function Onboarding() {
         throw new Error("Active session not found. Please log in again.")
       }
 
-      const activePhone = (phoneNumber || activeUser.phone || profile?.phone || "").trim() || null
+      const userEmail = (email || activeUser.email || profile?.email || "").trim().toLowerCase() || null
+      const rawPhone = (phoneNumber || activeUser.phone || profile?.phone || "").trim()
+      const userPhone = rawPhone ? (rawPhone.startsWith("+") ? rawPhone : normalizePhoneNumber(rawPhone)) : null
+
+      if (!userEmail && !userPhone) {
+        setErrorMsg("Please provide either a valid email address or mobile number to continue.")
+        setLoading(false)
+        return
+      }
 
       const { error: upsertError } = await supabase
         .from("profiles")
         .upsert({
           id: activeUser.id,
-          phone: activePhone,
+          email: userEmail,
+          phone: userPhone,
           full_name: fullName.trim(),
           role: selectedRole,
           is_profile_completed: true,
@@ -118,7 +129,17 @@ export default function Onboarding() {
         navigate("/jobs", { replace: true })
       }
     } catch (err) {
-      setErrorMsg(err.message || "Failed to complete profile setup. Please try again.")
+      const errStr = `${err?.message || ""} ${err?.details || ""}`.toLowerCase()
+
+      if (errStr.includes("profiles_email_or_phone_check")) {
+        setErrorMsg("Please provide either a valid email address or mobile number to continue.")
+      } else if (errStr.includes("duplicate key") || errStr.includes("unique constraint")) {
+        setErrorMsg("An account with these details already exists.")
+      } else if (err?.message === "Active session not found. Please log in again.") {
+        setErrorMsg(err.message)
+      } else {
+        setErrorMsg("Unable to save your profile. Please check your details and try again.")
+      }
     } finally {
       setLoading(false)
     }
@@ -163,18 +184,20 @@ export default function Onboarding() {
               />
             </div>
 
-            {email && (
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="email" className="text-xs font-semibold">
-                    Email Address
-                  </Label>
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="email" className="text-xs font-semibold">
+                  {isEmailVerified ? "Verified Email Address" : "Email Address (Optional)"}
+                </Label>
+                {isEmailVerified && (
                   <span className="text-[10px] text-emerald-600 font-semibold flex items-center gap-0.5">
                     <CheckCircle2 className="h-3 w-3" /> Verified
                   </span>
-                </div>
-                <div className="relative">
-                  <Mail className="h-4 w-4 absolute left-3 top-3.5 text-muted-foreground" />
+                )}
+              </div>
+              <div className="relative">
+                <Mail className="h-4 w-4 absolute left-3 top-3.5 text-muted-foreground" />
+                {isEmailVerified ? (
                   <Input
                     id="email"
                     type="email"
@@ -182,11 +205,20 @@ export default function Onboarding() {
                     disabled
                     className="h-11 pl-9 bg-muted/40 font-medium text-sm text-foreground cursor-not-allowed"
                   />
-                </div>
+                ) : (
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="e.g. name@example.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="h-11 pl-9 font-medium text-sm text-foreground"
+                  />
+                )}
               </div>
-            )}
+            </div>
 
-            <div className={`space-y-1.5 ${!email ? "sm:col-span-2" : ""}`}>
+            <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <Label htmlFor="phone" className="text-xs font-semibold">
                   {isPhoneVerified ? "Verified Mobile Number" : "Mobile Number (Optional)"}
@@ -213,7 +245,8 @@ export default function Onboarding() {
                     type="tel"
                     placeholder="e.g. 98765 43210"
                     value={phoneNumber}
-                    onChange={(e) => setPhoneNumber(e.target.value)}
+                    maxLength={10}
+                    onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, "").slice(0, 10))}
                     className="h-11 pl-9 font-medium text-sm text-foreground"
                   />
                 )}
