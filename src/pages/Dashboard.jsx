@@ -25,10 +25,9 @@ export default function Dashboard() {
   const userCredits = profile?.credits ?? 500
   const shouldReduceMotion = useReducedMotion()
 
-  const [creditBalance, setCreditBalance] = useState(null)
   const [companyName, setCompanyName] = useState("")
-  const [ledgerEntries, setLedgerEntries] = useState([])
-  const [loadingCredits, setLoadingCredits] = useState(false)
+  const [transactions, setTransactions] = useState([])
+  const [loadingTransactions, setLoadingTransactions] = useState(false)
 
   const [metrics, setMetrics] = useState({
     total: 0,
@@ -42,33 +41,16 @@ export default function Dashboard() {
   })
 
   useEffect(() => {
-    async function loadRecruiterCredits() {
+    async function loadRecruiterData() {
       if (!user?.id || role !== "recruiter") return
 
-      setLoadingCredits(true)
+      setLoadingTransactions(true)
       try {
         const { data: companies } = await supabase.rpc("get_my_companies")
         const currentComp = companies?.[0]
 
         if (currentComp) {
           setCompanyName(currentComp.name)
-
-          const { data: credData } = await supabase
-            .from("company_credits")
-            .select("balance, updated_at")
-            .eq("company_id", currentComp.id)
-            .maybeSingle()
-
-          setCreditBalance(credData ? credData.balance : 0)
-
-          const { data: ledgerData } = await supabase
-            .from("credit_ledger")
-            .select("*")
-            .eq("company_id", currentComp.id)
-            .order("created_at", { ascending: false })
-            .limit(20)
-
-          setLedgerEntries(ledgerData || [])
 
           const { data: compApps } = await supabase
             .from("applications")
@@ -86,7 +68,7 @@ export default function Dashboard() {
             const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
             const last7Days = compApps.filter((a) => new Date(a.created_at) >= sevenDaysAgo).length
 
-            const creditsSpent = compApps.reduce((acc, a) => acc + (a.credits_charged || 10), 0)
+            const creditsSpent = compApps.reduce((acc, a) => acc + (a.credits_charged || 5), 0)
 
             setMetrics({
               total,
@@ -100,14 +82,23 @@ export default function Dashboard() {
             })
           }
         }
+
+        const { data: transData } = await supabase
+          .from("credit_transactions")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(20)
+
+        setTransactions(transData || [])
       } catch (err) {
-        console.error("Error fetching credit balance:", err)
+        console.error("Error loading recruiter data:", err)
       } finally {
-        setLoadingCredits(false)
+        setLoadingTransactions(false)
       }
     }
 
-    loadRecruiterCredits()
+    loadRecruiterData()
   }, [user, role])
 
   if (role === "admin") {
@@ -135,7 +126,7 @@ export default function Dashboard() {
           {role === "recruiter" && (
             <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-800 text-xs font-semibold">
               <Coins className="h-3.5 w-3.5 text-amber-600" />
-              <span>{userCredits} Points Balance</span>
+              <span>{userCredits} Credits Balance</span>
             </div>
           )}
           <span className="text-xs text-muted-foreground font-medium">Account Role:</span>
@@ -145,7 +136,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className={`grid grid-cols-1 md:grid-cols-2 ${role === "recruiter" ? "lg:grid-cols-4" : "lg:grid-cols-3"} gap-5`}>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
         <Card className="shadow-sm">
           <CardHeader className="pb-3">
             <div className="flex items-center gap-2.5">
@@ -242,76 +233,39 @@ export default function Dashboard() {
           <>
             <Card className="shadow-sm">
               <CardHeader className="pb-3">
-                <div className="flex justify-between items-start">
+                <div className="flex justify-between items-start gap-2">
                   <div className="flex items-center gap-2.5">
                     <div className="h-9 w-9 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center font-bold">
                       <Coins className="h-4 w-4" />
                     </div>
                     <div>
-                      <CardTitle className="text-base font-heading font-bold">Resume Points</CardTitle>
-                      <CardDescription className="text-xs truncate max-w-[140px]">
-                        Personal points
+                      <CardTitle className="text-base font-heading font-bold">Recruiter Credits</CardTitle>
+                      <CardDescription className="text-xs">
+                        Wallet Balance
                       </CardDescription>
                     </div>
                   </div>
-                  <Badge variant="outline" className="text-[10px] font-mono">
-                    10 pts / resume
-                  </Badge>
+                  <div className="flex flex-col items-end gap-1">
+                    <Badge variant="outline" className="text-[10px] font-mono">
+                      5 pts / application received
+                    </Badge>
+                    <Badge variant="outline" className="text-[10px] font-mono">
+                      10 pts / resume unlocked
+                    </Badge>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent className="space-y-3 pt-0">
                 <div className="text-3xl font-heading font-extrabold text-primary">
-                  <AnimatedCounter value={userCredits} suffix=" Points" />
+                  <AnimatedCounter value={userCredits} suffix=" Credits" />
                 </div>
                 <p className="text-[11px] text-muted-foreground leading-relaxed">
-                  10 credit points are deducted when you unlock candidate resumes in applicant pipelines.
+                  Credits are used when candidates apply to your jobs (5 pts) and when unlocking candidate resumes (10 pts).
                 </p>
                 <div className="pt-1">
                   <Link to="/dashboard/credits">
-                    <Button size="sm" className="w-full text-xs h-8 font-semibold gap-1.5">
-                      <Coins className="h-3.5 w-3.5" /> Buy Points
-                    </Button>
-                  </Link>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="shadow-sm">
-              <CardHeader className="pb-3">
-                <div className="flex justify-between items-start">
-                  <div className="flex items-center gap-2.5">
-                    <div className="h-9 w-9 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center font-bold">
-                      <Coins className="h-4 w-4" />
-                    </div>
-                    <div>
-                      <CardTitle className="text-base font-heading font-bold">Company Credits</CardTitle>
-                      <CardDescription className="text-xs truncate max-w-[140px]">
-                        {companyName ? `For ${companyName}` : "Application balance"}
-                      </CardDescription>
-                    </div>
-                  </div>
-                  <Badge variant="outline" className="text-[10px] font-mono">
-                    10 cr / apply
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3 pt-0">
-                <div className="text-3xl font-heading font-extrabold text-primary">
-                  {loadingCredits ? (
-                    <Skeleton className="h-9 w-24" />
-                  ) : creditBalance !== null ? (
-                    <AnimatedCounter value={creditBalance} suffix=" Credits" />
-                  ) : (
-                    "0 Credits"
-                  )}
-                </div>
-                <p className="text-[11px] text-muted-foreground leading-relaxed">
-                  Credits are automatically deducted when candidates submit applications. Postings pause if credits reach 0.
-                </p>
-                <div className="pt-1">
-                  <Link to="/dashboard/credits">
-                    <Button size="sm" variant="outline" className="w-full text-xs h-8 font-semibold gap-1.5">
-                      <Coins className="h-3.5 w-3.5" /> Company Credits
+                    <Button size="sm" className="w-full text-xs h-8 font-semibold gap-1.5 shadow-sm">
+                      <Coins className="h-3.5 w-3.5" /> Recharge Credits
                     </Button>
                   </Link>
                 </div>
@@ -423,21 +377,21 @@ export default function Dashboard() {
       {role === "recruiter" && (
         <Card className="shadow-sm mt-6">
           <CardHeader className="pb-3">
-            <CardTitle className="text-lg font-heading font-bold">Credit Ledger (Last 20 Transactions)</CardTitle>
+            <CardTitle className="text-lg font-heading font-bold">Credit Transactions (Last 20 Activity Logs)</CardTitle>
             <CardDescription className="text-xs">
-              Immutable audit log of credits added via admin topup and deducted for candidate applications.
+              Immutable audit log of credits recharged and points deducted for applications & resume unlocks.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {loadingCredits ? (
+            {loadingTransactions ? (
               <div className="space-y-2 py-2">
                 {[1, 2, 3].map((i) => (
                   <Skeleton key={i} className="h-10 w-full" />
                 ))}
               </div>
-            ) : ledgerEntries.length === 0 ? (
+            ) : transactions.length === 0 ? (
               <div className="text-center py-8 border border-dashed rounded-xl text-xs text-muted-foreground">
-                No credit transactions recorded yet for this company.
+                No credit transactions recorded yet for this account.
               </div>
             ) : (
               <div className="overflow-x-auto rounded-xl border">
@@ -445,14 +399,13 @@ export default function Dashboard() {
                   <thead className="border-b bg-muted/40 text-[10px] uppercase font-bold tracking-wider text-muted-foreground">
                     <tr>
                       <th className="py-2.5 px-3">Date</th>
-                      <th className="py-2.5 px-3">Type</th>
-                      <th className="py-2.5 px-3">Change</th>
-                      <th className="py-2.5 px-3">Balance After</th>
-                      <th className="py-2.5 px-3">Reference / Note</th>
+                      <th className="py-2.5 px-3">Transaction Type</th>
+                      <th className="py-2.5 px-3">Points</th>
+                      <th className="py-2.5 px-3">Description</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/60">
-                    {ledgerEntries.map((entry) => (
+                    {transactions.map((entry) => (
                       <tr key={entry.id} className="hover:bg-muted/20 transition-colors">
                         <td className="py-2.5 px-3 text-muted-foreground whitespace-nowrap">
                           {new Date(entry.created_at).toLocaleString()}
@@ -462,22 +415,14 @@ export default function Dashboard() {
                             variant={entry.amount > 0 ? "default" : "secondary"}
                             className="text-[9px] uppercase font-mono"
                           >
-                            {entry.type.replace("_", " ")}
+                            {(entry.transaction_type || "").replace(/_/g, " ")}
                           </Badge>
                         </td>
                         <td className={`py-2.5 px-3 font-bold font-mono ${entry.amount > 0 ? "text-emerald-600" : "text-destructive"}`}>
-                          {entry.amount > 0 ? `+${entry.amount}` : entry.amount}
-                        </td>
-                        <td className="py-2.5 px-3 font-mono font-medium">
-                          {entry.balance_after}
+                          {entry.amount > 0 ? `+${entry.amount}` : entry.amount} pts
                         </td>
                         <td className="py-2.5 px-3 text-muted-foreground">
-                          {entry.reference ? (
-                            <span className="font-mono font-semibold text-foreground mr-1.5">
-                              [{entry.reference}]
-                            </span>
-                          ) : null}
-                          {entry.note || ""}
+                          {entry.description || "—"}
                         </td>
                       </tr>
                     ))}

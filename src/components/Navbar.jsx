@@ -118,7 +118,7 @@ export default function Navbar() {
               {role === "recruiter" && (
                 <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-800 text-xs font-semibold">
                   <Coins className="h-3.5 w-3.5 text-amber-600" />
-                  <span>{userCredits} pts</span>
+                  <span>{userCredits} Credits</span>
                 </div>
               )}
               <ErrorBoundary compact fallback={<span className="text-xs text-muted-foreground p-1">🔔</span>}>
@@ -208,7 +208,7 @@ export default function Navbar() {
                   {role === "recruiter" && (
                     <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-800 text-[10px] font-semibold">
                       <Coins className="h-3 w-3 text-amber-600" />
-                      <span>{userCredits} pts</span>
+                      <span>{userCredits} Credits</span>
                     </div>
                   )}
                   {role && (

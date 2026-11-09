@@ -14,7 +14,7 @@ import { AnimatedCounter } from "@/components/ui/animated-counter"
 import PageTransition from "@/components/PageTransition"
 
 export default function RecruiterCredits() {
-  const { user, profile } = useAuth()
+  const { user, profile, refreshProfile } = useAuth()
   const [company, setCompany] = useState(null)
   const [balance, setBalance] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -49,12 +49,7 @@ export default function RecruiterCredits() {
 
       setCompany(currentComp)
 
-      const [credRes, packsRes, reqsRes] = await Promise.all([
-        supabase
-          .from("company_credits")
-          .select("balance")
-          .eq("company_id", currentComp.id)
-          .maybeSingle(),
+      const [packsRes, reqsRes] = await Promise.all([
         supabase
           .from("credit_packs")
           .select("*")
@@ -79,15 +74,22 @@ export default function RecruiterCredits() {
           .order("created_at", { ascending: false }),
       ])
 
-      setBalance(credRes.data ? credRes.data.balance : 0)
-      setPacks(packsRes.data || [])
+      const defaultPacks = [
+        { id: "pack-standard-500", name: "Standard Pack", credits: 500, price_inr: 5000, sort: 1, popular: true },
+        { id: "pack-growth-1000", name: "Growth Pack", credits: 1000, price_inr: 10000, sort: 2, popular: false },
+        { id: "pack-enterprise-2500", name: "Enterprise Pack", credits: 2500, price_inr: 25000, sort: 3, popular: false },
+      ]
+
+      const loadedPacks = packsRes.data && packsRes.data.length > 0 ? packsRes.data : defaultPacks
+      setBalance(profile?.credits ?? 500)
+      setPacks(loadedPacks)
       setRequests(reqsRes.data || [])
     } catch (err) {
       setErrorMsg(err.message || "Failed to load credits information.")
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [profile?.credits])
 
   useEffect(() => {
     loadData()
@@ -115,10 +117,11 @@ export default function RecruiterCredits() {
         {
           event: "*",
           schema: "public",
-          table: "company_credits",
-          filter: `company_id=eq.${company.id}`,
+          table: "profiles",
+          filter: `id=eq.${user?.id}`,
         },
         () => {
+          refreshProfile()
           loadData()
         }
       )
@@ -127,7 +130,7 @@ export default function RecruiterCredits() {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [company?.id, loadData])
+  }, [company?.id, loadData, user?.id, refreshProfile])
 
   const handleOpenModal = (pack) => {
     setErrorMsg("")
@@ -247,6 +250,7 @@ export default function RecruiterCredits() {
 
       setSuccessMsg(`Your request for ${selectedPack.credits} credits has been submitted. Credits will be added within 24 hours after admin verification.`)
       handleCloseModal()
+      await refreshProfile()
       await loadData()
     } catch (err) {
       setErrorMsg(err.message || "Failed to submit credit request.")
@@ -314,7 +318,9 @@ export default function RecruiterCredits() {
     )
   }
 
-  const applicationsCovered = balance !== null ? Math.floor(balance / 10) : 0
+  const currentCredits = balance ?? (profile?.credits ?? 500)
+  const applicationsCovered = Math.floor(currentCredits / 5)
+  const resumesCovered = Math.floor(currentCredits / 10)
   const isApproved = company?.verification_status === "approved"
 
   const upiDeepLink = selectedPack
@@ -336,10 +342,10 @@ export default function RecruiterCredits() {
             <ArrowLeft className="h-3.5 w-3.5" /> Back to Dashboard
           </Link>
           <h1 className="text-2xl sm:text-3xl font-heading font-extrabold tracking-tight">
-            Company Credits & Packages
+            Recruiter Credits & Wallet Recharge
           </h1>
           <p className="text-xs sm:text-sm text-muted-foreground">
-            Fuel your candidate pipeline. Credits are automatically deducted when candidates submit applications.
+            Unified credits wallet for your recruiter account. 5 points per candidate application received, and 10 points per resume unlocked.
           </p>
         </div>
 
@@ -397,10 +403,10 @@ export default function RecruiterCredits() {
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                Current Balance
+                Unified Wallet Balance
               </span>
               <Badge variant="outline" className="text-[10px] font-mono">
-                10 cr / application
+                Unified Points
               </Badge>
             </div>
           </CardHeader>
@@ -409,18 +415,24 @@ export default function RecruiterCredits() {
               {loading ? (
                 <Skeleton className="h-10 w-28" />
               ) : (
-                <AnimatedCounter value={balance ?? 0} suffix=" Credits" />
+                <AnimatedCounter value={currentCredits} suffix=" Credits" />
               )}
             </div>
-            <div className="p-3 bg-background/80 rounded-lg border text-xs space-y-1">
+            <div className="p-3 bg-background/80 rounded-lg border text-xs space-y-1.5">
               <div className="flex justify-between font-medium">
                 <span className="text-muted-foreground">Applications Covered:</span>
                 <span className="font-bold text-foreground">
-                  {loading ? "--" : `${applicationsCovered} candidates`}
+                  ~{applicationsCovered} candidates (5 pts)
                 </span>
               </div>
-              <p className="text-[11px] text-muted-foreground leading-relaxed">
-                When balance reaches 0, your job postings pause automatically until credits are added.
+              <div className="flex justify-between font-medium">
+                <span className="text-muted-foreground">Resumes Covered:</span>
+                <span className="font-bold text-foreground">
+                  ~{resumesCovered} unlocks (10 pts)
+                </span>
+              </div>
+              <p className="text-[11px] text-muted-foreground leading-relaxed pt-1 border-t">
+                One single credit wallet for all candidate applications and resume unlocks.
               </p>
             </div>
           </CardContent>
@@ -442,8 +454,9 @@ export default function RecruiterCredits() {
             </Card>
           ) : (
             packs.map((pack) => {
-              const packApps = Math.floor(pack.credits / 10)
-              const isPopular = pack.name.toLowerCase().includes("growth")
+              const packApps = Math.floor(pack.credits / 5)
+              const packResumes = Math.floor(pack.credits / 10)
+              const isPopular = pack.credits === 500 || pack.name.toLowerCase().includes("standard")
 
               return (
                 <Card
@@ -455,7 +468,7 @@ export default function RecruiterCredits() {
                   {isPopular && (
                     <div className="absolute -top-2.5 left-1/2 -translate-x-1/2">
                       <Badge className="bg-primary text-primary-foreground text-[10px] font-bold px-2 py-0 shadow-sm flex items-center gap-1">
-                        <Sparkles className="h-3 w-3" /> Most Popular
+                        <Sparkles className="h-3 w-3" /> Standard Pack (Recommended)
                       </Badge>
                     </div>
                   )}
@@ -463,7 +476,7 @@ export default function RecruiterCredits() {
                   <CardHeader className="pb-2 pt-5">
                     <CardTitle className="text-base font-heading font-bold">{pack.name}</CardTitle>
                     <CardDescription className="text-xs">
-                      Covers ~{packApps} candidate applications
+                      Covers ~{packApps} applications or ~{packResumes} resumes
                     </CardDescription>
                   </CardHeader>
 
@@ -474,17 +487,21 @@ export default function RecruiterCredits() {
                       </div>
                       <div className="text-xs font-semibold text-primary flex items-center gap-1">
                         <Coins className="h-3.5 w-3.5" />
-                        <span>{pack.credits} Credits</span>
+                        <span>{pack.credits} Points</span>
                       </div>
                     </div>
                     <div className="text-[11px] text-muted-foreground border-t pt-2 space-y-1">
                       <div className="flex items-center gap-1.5">
                         <CheckCircle2 className="h-3 w-3 text-emerald-600 shrink-0" />
-                        <span>Immediate activation upon review</span>
+                        <span>5 pts / application received</span>
                       </div>
                       <div className="flex items-center gap-1.5">
                         <CheckCircle2 className="h-3 w-3 text-emerald-600 shrink-0" />
-                        <span>Unpauses all active job listings</span>
+                        <span>10 pts / resume unlocked</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <CheckCircle2 className="h-3 w-3 text-emerald-600 shrink-0" />
+                        <span>Instant deposit into unified wallet</span>
                       </div>
                     </div>
                   </CardContent>
@@ -496,7 +513,7 @@ export default function RecruiterCredits() {
                       disabled={!isApproved}
                       onClick={() => handleOpenModal(pack)}
                     >
-                      Request credits
+                      Recharge Pack
                     </Button>
                     <Button
                       variant="ghost"
@@ -645,10 +662,10 @@ export default function RecruiterCredits() {
                 </button>
               </div>
               <h3 className="text-lg font-heading font-extrabold text-foreground">
-                Request {selectedPack.credits} Credits ({selectedPack.name})
+                Recharge {selectedPack.credits} Points ({selectedPack.name})
               </h3>
               <p className="text-xs text-muted-foreground">
-                Payable Amount: <strong className="text-foreground">&#8377;{selectedPack.price_inr.toLocaleString("en-IN")}</strong>
+                Payable Amount: <strong className="text-foreground">&#8377;{selectedPack.price_inr.toLocaleString("en-IN")}</strong> &bull; Unified Recruiter Wallet Credit
               </p>
             </div>
 
