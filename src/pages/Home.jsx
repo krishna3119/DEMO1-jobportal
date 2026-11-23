@@ -362,12 +362,12 @@ export default function Home() {
             {[...partnerCompanies, ...partnerCompanies, ...partnerCompanies].map((comp, idx) => (
               <div
                 key={idx}
-                className="flex items-center justify-center p-4 sm:p-5 h-24 sm:h-28 w-44 sm:w-56 rounded-2xl border bg-card hover:border-primary/40 shadow-xs hover:shadow-lg transition-all duration-200 group shrink-0 select-none"
+                className="flex items-center justify-center p-4 h-28 sm:h-32 w-52 sm:w-64 rounded-2xl border bg-card hover:border-primary/40 shadow-xs hover:shadow-lg transition-all duration-200 group shrink-0 select-none"
               >
                 <img
                   src={comp.logo}
                   alt={comp.name}
-                  className="h-10 sm:h-12 w-auto max-w-[85%] object-contain transition-transform duration-200 group-hover:scale-105"
+                  className="h-14 sm:h-16 md:h-20 w-auto max-w-[85%] object-contain transition-transform duration-200 group-hover:scale-105"
                   loading="lazy"
                 />
               </div>
