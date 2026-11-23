@@ -63,12 +63,12 @@ export default function ContactUs() {
       a: "Candidates can browse verified job openings, upload a clean resume in PDF format, and submit direct applications with zero intermediaries. Status updates (Applied, Shortlisted, Selected) are tracked in real-time.",
     },
     {
-      q: "How can recruiters purchase credits to post jobs?",
-      a: "Employers can navigate to the Credits portal (/dashboard/credits) and select Starter, Growth, or Scale packages. Each application costs 10 credits. You can pay seamlessly via our dynamic UPI QR code.",
+      q: "How can recruiters subscribe to packages to post jobs?",
+      a: "Employers can navigate to the Packages portal (/dashboard/credits) and select Monthly, 3-Month, 6-Month, or Yearly packages. Each package offers pooled CV unlocks across all job postings and distinct city limits. Pay seamlessly via Razorpay or direct UTR reference.",
     },
     {
-      q: "What is the turnaround time for offline UPI verification?",
-      a: "Once you submit your 12-digit UTR reference and payment screenshot receipt, our administration team verifies and approves the credit pack within 24 business hours.",
+      q: "How do pooled CV unlock quotas work?",
+      a: "CV unlock quotas are pooled across all your job postings under your active subscription. Unlocking a CV for any candidate deducts 1 CV from your single shared pool, while candidates apply 100% free.",
     },
     {
       q: "How does employer company verification work?",
@@ -92,7 +92,7 @@ export default function ContactUs() {
         </h1>
 
         <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">
-          Have questions about recruitment, job listings, corporate credit packs, or platform partnership? Our dedicated advisory team is here to support you.
+          Have questions about recruitment, job listings, corporate subscription packages, or platform partnership? Our dedicated advisory team is here to support you.
         </p>
       </section>
 
@@ -338,7 +338,7 @@ export default function ContactUs() {
                       className="flex h-11 sm:h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-base sm:text-xs focus:outline-none focus:ring-2 focus:ring-ring"
                     >
                       <option value="Candidate Help">Candidate Application Help</option>
-                      <option value="Recruiter / Credit Purchase">Recruiter / Credit Purchase</option>
+                      <option value="Recruiter / Subscription Package">Recruiter / Subscription Package</option>
                       <option value="Company Verification">Company Verification Inquiry</option>
                       <option value="Business Partnership">Corporate Partnership</option>
                       <option value="Other">Other Query</option>

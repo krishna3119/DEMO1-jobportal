@@ -1,18 +1,21 @@
 import { useState } from "react"
 import { Link, NavLink, useNavigate } from "react-router-dom"
-import { Briefcase, Menu, X, Sparkles, User, LogOut, Coins } from "lucide-react"
+import { Briefcase, Menu, X, Sparkles, User, LogOut, Layers, Building2, MapPin, Calendar, PlusCircle } from "lucide-react"
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion"
 import { useAuth } from "@/context/AuthContext"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import NotificationBell from "@/components/NotificationBell"
 import ErrorBoundary from "@/components/ErrorBoundary"
+import PackagesModal from "@/components/PackagesModal"
+import { isPlanActive, getPlanDisplayName, formatExpiry } from "@/lib/subscriptionPlans"
 
 export default function Navbar() {
   const { user, profile, signOut } = useAuth()
   const navigate = useNavigate()
   const shouldReduceMotion = useReducedMotion()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [showPackagesModal, setShowPackagesModal] = useState(false)
 
   const navLinkClass = ({ isActive }) =>
     `text-sm font-medium transition-colors hover:text-primary ${
@@ -35,7 +38,16 @@ export default function Navbar() {
   }
 
   const role = profile?.role
-  const userCredits = profile?.credits ?? 500
+  const planActive = isPlanActive(profile)
+  const planName = getPlanDisplayName(profile?.active_plan)
+  const expiryText = formatExpiry(profile?.plan_expires_at)
+  const cvsRemaining = profile?.cv_unlocks_remaining ?? 0
+  const cvsLimit = profile?.cv_unlocks_limit ?? 0
+  const jobsUsed = profile?.job_posts_used ?? 0
+  const jobsLimit = profile?.job_posts_limit ?? 0
+  const citiesUsed = profile?.allowed_cities?.length ?? 0
+  const citiesLimit = profile?.cities_limit ?? 0
+
   const adminDisplayName = profile?.full_name?.trim() || "Administrator"
   const userDisplayName =
     role === "admin"
@@ -94,7 +106,7 @@ export default function Navbar() {
                 My Jobs
               </NavLink>
               <NavLink to="/dashboard/credits" className={navLinkClass}>
-                Credits
+                Packages
               </NavLink>
             </>
           )}
@@ -116,9 +128,26 @@ export default function Navbar() {
           {user ? (
             <div className="flex items-center space-x-3 pl-2 border-l">
               {role === "recruiter" && (
-                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-800 text-xs font-semibold">
-                  <Coins className="h-3.5 w-3.5 text-amber-600" />
-                  <span>{userCredits} Credits</span>
+                <div className="flex items-center gap-2">
+                  <div
+                    className={`flex items-center gap-2 px-3 py-1 rounded-full border text-xs font-semibold ${
+                      planActive
+                        ? "bg-primary/10 border-primary/30 text-primary"
+                        : "bg-amber-500/10 border-amber-500/30 text-amber-800"
+                    }`}
+                    title={`Plan: ${planName} • ${cvsRemaining}/${cvsLimit} CVs remaining • Expiry: ${expiryText}`}
+                  >
+                    <Layers className="h-3.5 w-3.5" />
+                    <span>{planActive ? `${planName} (${cvsRemaining} CVs)` : "No Active Plan"}</span>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs px-2.5 font-semibold border-primary/40 text-primary hover:bg-primary/10"
+                    onClick={() => setShowPackagesModal(true)}
+                  >
+                    Upgrade / Buy Package
+                  </Button>
                 </div>
               )}
               <ErrorBoundary compact fallback={<span className="text-xs text-muted-foreground p-1">🔔</span>}>
@@ -160,10 +189,17 @@ export default function Navbar() {
 
         <div className="flex md:hidden items-center space-x-2">
           {user && role === "recruiter" && (
-            <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-800 text-[11px] font-semibold">
-              <Coins className="h-3 w-3 text-amber-600" />
-              <span>{userCredits}</span>
-            </div>
+            <button
+              onClick={() => setShowPackagesModal(true)}
+              className={`flex items-center gap-1 px-2 py-0.5 rounded-full border text-[11px] font-semibold ${
+                planActive
+                  ? "bg-primary/10 border-primary/30 text-primary"
+                  : "bg-amber-500/10 border-amber-500/30 text-amber-800"
+              }`}
+            >
+              <Layers className="h-3 w-3" />
+              <span>{planActive ? `${cvsRemaining} CVs` : "Upgrade"}</span>
+            </button>
           )}
           {user && (
             <ErrorBoundary compact fallback={<span className="text-xs text-muted-foreground p-1">🔔</span>}>
@@ -192,31 +228,60 @@ export default function Navbar() {
             className="md:hidden border-b bg-background/98 backdrop-blur-lg px-4 pt-2 pb-6 space-y-3 max-h-[calc(100vh-5rem)] overflow-y-auto shadow-lg"
           >
             {user && (
-              <div className="flex items-center justify-between pb-3 border-b px-1">
-                <div className="flex items-center gap-2">
-                  <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs">
-                    <User className="h-4 w-4" />
-                  </div>
-                  <div className="leading-tight">
-                    <p className="text-xs font-semibold truncate max-w-[180px]">
-                      {userDisplayName}
-                    </p>
-                    <p className="text-[10px] text-muted-foreground uppercase">{role || "User"}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  {role === "recruiter" && (
-                    <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-800 text-[10px] font-semibold">
-                      <Coins className="h-3 w-3 text-amber-600" />
-                      <span>{userCredits} Credits</span>
+              <div className="space-y-3 pb-3 border-b px-1">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs">
+                      <User className="h-4 w-4" />
                     </div>
-                  )}
+                    <div className="leading-tight">
+                      <p className="text-xs font-semibold truncate max-w-[180px]">
+                        {userDisplayName}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground uppercase">{role || "User"}</p>
+                    </div>
+                  </div>
                   {role && (
                     <Badge className={`uppercase text-[9px] font-bold tracking-wider ${roleBadgeVariants[role] || ""}`}>
                       {role}
                     </Badge>
                   )}
                 </div>
+
+                {role === "recruiter" && (
+                  <div className="p-3 rounded-xl bg-muted/40 border space-y-2 text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-foreground">{planName}</span>
+                      <span className="text-[10px] text-muted-foreground">{expiryText}</span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 text-[11px] pt-1 border-t">
+                      <div>
+                        <span className="text-muted-foreground block text-[10px]">Job Posts</span>
+                        <strong className="text-foreground">{jobsUsed} / {jobsLimit}</strong>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground block text-[10px]">Pooled CVs</span>
+                        <strong className="text-foreground">{cvsRemaining} / {cvsLimit}</strong>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground block text-[10px]">Cities</span>
+                        <strong className="text-foreground">{citiesUsed} / {citiesLimit}</strong>
+                      </div>
+                    </div>
+                    <div className="pt-1">
+                      <Button
+                        size="sm"
+                        className="w-full text-xs h-8 font-semibold"
+                        onClick={() => {
+                          setMobileMenuOpen(false)
+                          setShowPackagesModal(true)
+                        }}
+                      >
+                        Upgrade / Buy Package
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -251,7 +316,7 @@ export default function Navbar() {
                     My Jobs
                   </NavLink>
                   <NavLink to="/dashboard/credits" className={mobileNavLinkClass} onClick={() => setMobileMenuOpen(false)}>
-                    Credits
+                    Packages & Plans
                   </NavLink>
                 </>
               )}
@@ -295,6 +360,11 @@ export default function Navbar() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <PackagesModal
+        isOpen={showPackagesModal}
+        onClose={() => setShowPackagesModal(false)}
+      />
     </header>
   )
 }

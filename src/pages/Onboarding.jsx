@@ -328,7 +328,7 @@ export default function Onboarding() {
                 <CardContent className="text-xs text-muted-foreground space-y-2 pt-0">
                   <p className="flex items-center gap-1.5">• Register your company for verification</p>
                   <p className="flex items-center gap-1.5">• Post targeted job listings across India</p>
-                  <p className="flex items-center gap-1.5">• Fair credit-based candidate review</p>
+                  <p className="flex items-center gap-1.5">• Pooled CV candidate review packages</p>
                 </CardContent>
               </Card>
             </motion.div>

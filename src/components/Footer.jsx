@@ -73,7 +73,7 @@ export default function Footer() {
               </li>
               <li>
                 <Link to="/dashboard/credits" className="hover:text-foreground hover:text-brand-orange transition-colors">
-                  Recruiter Credit Packages
+                  Recruiter Subscription Packages
                 </Link>
               </li>
               <li>

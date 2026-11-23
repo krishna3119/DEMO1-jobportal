@@ -306,11 +306,11 @@ export default function MyJobs() {
                       ) : job.status === "paused" ? (
                         <div className="flex items-center gap-1.5">
                           <Badge variant="outline" className="border-amber-500/40 text-amber-700 bg-amber-500/10 text-[10px]">
-                            Paused (No Credits)
+                            Paused (Plan Expired)
                           </Badge>
                           <Link to="/dashboard/credits">
                             <Button size="sm" variant="default" className="h-5 text-[10px] px-2 py-0 font-semibold">
-                              Buy credits
+                              Renew Plan
                             </Button>
                           </Link>
                         </div>

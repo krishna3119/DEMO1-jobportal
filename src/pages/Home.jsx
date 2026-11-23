@@ -87,8 +87,8 @@ export default function Home() {
     },
     {
       icon: Sparkles,
-      title: "3. Fair Credit System",
-      desc: "Transparent 10-credit per candidate model with instant email updates for selected applicants.",
+      title: "3. Pooled Subscription Quotas",
+      desc: "Transparent packages with pooled CV unlocks across all job posts. Candidates apply 100% free.",
     },
   ]
 
@@ -133,7 +133,7 @@ export default function Home() {
           {[
             { label: "100% Verified", sub: "Approved employers" },
             { label: "Live Timeline", sub: "Real-time status updates" },
-            { label: "Fair Hiring", sub: "Credit-based model" },
+            { label: "Pooled CVs", sub: "Subscription packages" },
             { label: "Direct Resumes", sub: "Secure private PDF vault" },
           ].map((item, idx) => (
             <div key={idx} className="p-3 sm:p-4 rounded-xl border bg-card/60 backdrop-blur-sm space-y-1">

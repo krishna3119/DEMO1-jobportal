@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { useNavigate, Link } from "react-router-dom"
-import { Briefcase, AlertTriangle, ArrowLeft, Shield } from "lucide-react"
+import { Briefcase, AlertTriangle, ArrowLeft, Shield, Sparkles, Layers, MapPin, CheckCircle2 } from "lucide-react"
 import { useAuth } from "@/context/AuthContext"
 import { supabase } from "@/lib/supabase"
 import { Button } from "@/components/ui/button"
@@ -10,10 +10,13 @@ import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Badge } from "@/components/ui/badge"
 import PageTransition from "@/components/PageTransition"
+import PackagesModal from "@/components/PackagesModal"
+import { isPlanActive, getPlanDisplayName, formatExpiry } from "@/lib/subscriptionPlans"
 
 export default function PostJob() {
-  const { user, profile } = useAuth()
+  const { user, profile, refreshProfile } = useAuth()
   const navigate = useNavigate()
 
   const [companies, setCompanies] = useState([])
@@ -32,6 +35,17 @@ export default function PostJob() {
   const [errorMsg, setErrorMsg] = useState("")
   const [noticeMsg, setNoticeMsg] = useState("")
   const [loading, setLoading] = useState(false)
+  const [showPackagesModal, setShowPackagesModal] = useState(false)
+
+  const planActive = isPlanActive(profile)
+  const planName = getPlanDisplayName(profile?.active_plan)
+  const expiryText = formatExpiry(profile?.plan_expires_at)
+  const jobsUsed = profile?.job_posts_used ?? 0
+  const jobsLimit = profile?.job_posts_limit ?? 0
+  const postsRemaining = Math.max(0, jobsLimit - jobsUsed)
+  const allowedCities = profile?.allowed_cities || []
+  const citiesLimit = profile?.cities_limit ?? 0
+  const isAdmin = profile?.role === "admin"
 
   useEffect(() => {
     async function loadCompanies() {
@@ -103,6 +117,9 @@ export default function PostJob() {
     ? selectedCompany.verification_status === "approved"
     : false
 
+  const isQuotaExhausted = !isAdmin && jobsUsed >= jobsLimit
+  const isSubscriptionBlocked = !isAdmin && (!planActive || isQuotaExhausted)
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setErrorMsg("")
@@ -116,6 +133,26 @@ export default function PostJob() {
     if (!isVerified) {
       setErrorMsg("Your company must be verified by an administrator before publishing job openings.")
       return
+    }
+
+    if (!isAdmin) {
+      if (!planActive) {
+        setErrorMsg("Active subscription package required to post jobs. Please subscribe to a package.")
+        return
+      }
+
+      if (jobsUsed >= jobsLimit) {
+        setErrorMsg(`Job post quota reached (${jobsUsed}/${jobsLimit} used). Please upgrade your package to post more jobs.`)
+        return
+      }
+
+      const inputCity = location.trim().toLowerCase()
+      const cityAlreadyUsed = allowedCities.some((c) => c.trim().toLowerCase() === inputCity)
+
+      if (!cityAlreadyUsed && allowedCities.length >= citiesLimit) {
+        setErrorMsg(`City limit reached for your active plan (${citiesLimit} allowed: ${allowedCities.join(", ")}). Upgrade your package to post jobs in additional cities.`)
+        return
+      }
     }
 
     if (!title.trim() || !location.trim() || !description.trim()) {
@@ -153,18 +190,8 @@ export default function PostJob() {
 
       if (error) throw error
 
-      if (data?.status === "paused") {
-        setNoticeMsg("Your job is saved but not visible to candidates until credits are added")
-        setTitle("")
-        setLocation("")
-        setDescription("")
-        setRequirements("")
-        setSalaryMin("")
-        setSalaryMax("")
-        window.scrollTo({ top: 0, behavior: "smooth" })
-      } else {
-        navigate("/dashboard/my-jobs", { replace: true })
-      }
+      await refreshProfile()
+      navigate("/dashboard/my-jobs", { replace: true })
     } catch (err) {
       setErrorMsg(err.message || "Failed to publish job.")
     } finally {
@@ -192,6 +219,73 @@ export default function PostJob() {
         </Link>
       </div>
 
+      {!isAdmin && (
+        <Card className={`border shadow-sm ${planActive && !isQuotaExhausted ? "bg-card border-primary/20" : "bg-amber-500/5 border-amber-500/30"}`}>
+          <CardContent className="p-4 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b pb-2.5">
+              <div className="flex items-center gap-2">
+                <span className="h-7 w-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center font-bold">
+                  <Layers className="h-3.5 w-3.5" />
+                </span>
+                <div>
+                  <h4 className="text-xs font-heading font-bold text-foreground">
+                    Subscription Quota: {planName}
+                  </h4>
+                  <span className="text-[10px] text-muted-foreground">{expiryText}</span>
+                </div>
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs px-2.5 font-semibold self-start sm:self-auto border-primary/40 text-primary hover:bg-primary/10"
+                onClick={() => setShowPackagesModal(true)}
+              >
+                <Sparkles className="h-3 w-3 mr-1" />
+                Upgrade / Renew Plan
+              </Button>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
+              <div className="p-2 rounded-lg bg-muted/30 border">
+                <span className="text-[10px] text-muted-foreground uppercase font-semibold block">Job Posts Remaining</span>
+                <span className="text-sm font-bold text-foreground">{postsRemaining} of {jobsLimit} jobs</span>
+              </div>
+              <div className="p-2 rounded-lg bg-muted/30 border">
+                <span className="text-[10px] text-muted-foreground uppercase font-semibold block">Allowed Cities</span>
+                <span className="text-sm font-bold text-foreground">{allowedCities.length} / {citiesLimit}</span>
+              </div>
+              <div className="col-span-2 sm:col-span-1 p-2 rounded-lg bg-muted/30 border">
+                <span className="text-[10px] text-muted-foreground uppercase font-semibold block">Registered Cities</span>
+                <span className="text-xs font-medium text-foreground truncate block" title={allowedCities.join(", ") || "None yet"}>
+                  {allowedCities.length > 0 ? allowedCities.join(", ") : "Any initial city"}
+                </span>
+              </div>
+            </div>
+
+            {!planActive && (
+              <Alert variant="destructive" className="py-2 text-xs">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription className="space-y-1">
+                  <p className="font-semibold">Subscription Inactive or Expired</p>
+                  <p>You must have an active subscription package to post jobs. Please choose a package below.</p>
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {planActive && isQuotaExhausted && (
+              <Alert className="py-2 text-xs border-amber-500/40 bg-amber-500/10 text-amber-900">
+                <AlertTriangle className="h-4 w-4 text-amber-600" />
+                <AlertDescription className="space-y-1">
+                  <p className="font-semibold">Job Post Quota Reached</p>
+                  <p>You have used all {jobsLimit} job posts on your {planName}. Upgrade your package to post additional jobs.</p>
+                </AlertDescription>
+              </Alert>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {!isVerified && (
         <Alert className="border-amber-500/40 bg-amber-500/10 text-amber-900 text-xs py-3">
           <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
@@ -207,11 +301,14 @@ export default function PostJob() {
                   ← Back to Dashboard
                 </Button>
               </Link>
-              <Link to="/dashboard/credits">
-                <Button variant="default" size="sm" className="h-8 text-xs font-semibold">
-                  Buy credits
-                </Button>
-              </Link>
+              <Button
+                variant="default"
+                size="sm"
+                className="h-8 text-xs font-semibold"
+                onClick={() => setShowPackagesModal(true)}
+              >
+                Packages
+              </Button>
             </div>
           </AlertDescription>
         </Alert>
@@ -236,11 +333,13 @@ export default function PostJob() {
                 Back to Dashboard
               </Button>
             </Link>
-            <Link to="/dashboard/credits">
-              <Button size="sm" className="h-9 px-4 font-semibold">
-                Buy credits
-              </Button>
-            </Link>
+            <Button
+              size="sm"
+              className="h-9 px-4 font-semibold"
+              onClick={() => setShowPackagesModal(true)}
+            >
+              Subscription Packages
+            </Button>
           </div>
         </Card>
       ) : (
@@ -261,26 +360,6 @@ export default function PostJob() {
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            {noticeMsg && (
-              <Alert className="border-amber-500/40 bg-amber-500/10 text-amber-900 text-xs py-2.5">
-                <AlertDescription className="space-y-2">
-                  <p className="font-semibold">{noticeMsg}</p>
-                  <div className="flex flex-wrap gap-2 pt-1">
-                    <Link to="/dashboard/my-jobs" state={{ notice: noticeMsg }}>
-                      <Button type="button" size="sm" variant="outline" className="h-7 text-xs">
-                        View My Jobs
-                      </Button>
-                    </Link>
-                    <Link to="/dashboard/credits">
-                      <Button type="button" size="sm" className="h-7 text-xs font-semibold">
-                        Buy credits
-                      </Button>
-                    </Link>
-                  </div>
-                </AlertDescription>
-              </Alert>
-            )}
-
             {errorMsg && (
               <Alert variant="destructive" className="text-xs py-2.5">
                 <AlertDescription>{errorMsg}</AlertDescription>
@@ -300,140 +379,173 @@ export default function PostJob() {
                   className="w-full rounded-lg border border-input bg-background px-3 h-10 text-xs focus:outline-none focus:ring-2 focus:ring-ring"
                   value={selectedCompanyId}
                   onChange={(e) => setSelectedCompanyId(e.target.value)}
-                  required
+                  disabled={loading}
                 >
-                  {companies.map((comp) => (
-                    <option key={comp.id} value={comp.id}>
-                      {comp.name} ({comp.location}) [{comp.verification_status || "pending"}]
+                  {companies.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} {c.verification_status !== "approved" ? `(${c.verification_status})` : ""}
                     </option>
                   ))}
                 </select>
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="job-title" className="text-xs font-semibold">Job Title *</Label>
+                <Label htmlFor="title" className="text-xs font-semibold">Job Title *</Label>
                 <Input
-                  id="job-title"
-                  placeholder="e.g. Senior Full-Stack Developer"
+                  id="title"
+                  placeholder="e.g. Senior Full Stack Engineer"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  className="h-10 text-sm"
+                  disabled={loading}
                   required
                 />
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="job-loc" className="text-xs font-semibold">Location *</Label>
+                <div className="flex justify-between items-center">
+                  <Label htmlFor="location" className="text-xs font-semibold">Location (City / State) *</Label>
+                  {!isAdmin && allowedCities.length > 0 && (
+                    <span className="text-[10px] text-muted-foreground font-mono">
+                      Current Plan Cities: {allowedCities.join(", ")} ({allowedCities.length}/{citiesLimit})
+                    </span>
+                  )}
+                </div>
                 <Input
-                  id="job-loc"
-                  placeholder="e.g. Bangalore, India (or Remote)"
+                  id="location"
+                  placeholder="e.g. Mumbai, Maharashtra or Bengaluru"
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
-                  className="h-10 text-sm"
+                  disabled={loading}
                   required
                 />
+                {!isAdmin && (
+                  <p className="text-[10px] text-muted-foreground">
+                    Your package permits posting in up to {citiesLimit} {citiesLimit === 1 ? "distinct city" : "distinct cities"}.
+                  </p>
+                )}
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <Label htmlFor="job-type" className="text-xs font-semibold">Job Type *</Label>
+                  <Label htmlFor="job-type" className="text-xs font-semibold">Employment Type *</Label>
                   <select
                     id="job-type"
                     className="w-full rounded-lg border border-input bg-background px-3 h-10 text-xs focus:outline-none focus:ring-2 focus:ring-ring"
                     value={jobType}
                     onChange={(e) => setJobType(e.target.value)}
+                    disabled={loading}
                   >
                     <option value="full_time">Full-time</option>
                     <option value="part_time">Part-time</option>
-                    <option value="contract">Contract</option>
                     <option value="internship">Internship</option>
+                    <option value="contract">Contract</option>
                     <option value="remote">Remote</option>
                   </select>
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label htmlFor="job-exp" className="text-xs font-semibold">Experience Level *</Label>
+                  <Label htmlFor="experience-level" className="text-xs font-semibold">Experience Level *</Label>
                   <select
-                    id="job-exp"
+                    id="experience-level"
                     className="w-full rounded-lg border border-input bg-background px-3 h-10 text-xs focus:outline-none focus:ring-2 focus:ring-ring"
                     value={experienceLevel}
                     onChange={(e) => setExperienceLevel(e.target.value)}
+                    disabled={loading}
                   >
                     <option value="fresher">Fresher (0 years)</option>
-                    <option value="1-3">1 - 3 years</option>
-                    <option value="3-5">3 - 5 years</option>
-                    <option value="5+">5+ years</option>
+                    <option value="1-3">1 - 3 Years</option>
+                    <option value="3-5">3 - 5 Years</option>
+                    <option value="5+">5+ Years</option>
                   </select>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <Label htmlFor="salary-min" className="text-xs font-semibold">Minimum Salary (₹ PA)</Label>
+                  <Label htmlFor="salary-min" className="text-xs font-semibold">Minimum Salary (₹ / Year)</Label>
                   <Input
                     id="salary-min"
                     type="number"
-                    placeholder="e.g. 1200000"
+                    placeholder="e.g. 600000"
                     value={salaryMin}
                     onChange={(e) => setSalaryMin(e.target.value)}
-                    className="h-10 text-xs"
+                    disabled={loading}
+                    min="0"
                   />
-                  <p className="text-[10px] text-muted-foreground">In INR per annum (optional)</p>
                 </div>
-
                 <div className="space-y-1.5">
-                  <Label htmlFor="salary-max" className="text-xs font-semibold">Maximum Salary (₹ PA)</Label>
+                  <Label htmlFor="salary-max" className="text-xs font-semibold">Maximum Salary (₹ / Year)</Label>
                   <Input
                     id="salary-max"
                     type="number"
-                    placeholder="e.g. 2000000"
+                    placeholder="e.g. 1200000"
                     value={salaryMax}
                     onChange={(e) => setSalaryMax(e.target.value)}
-                    className="h-10 text-xs"
+                    disabled={loading}
+                    min="0"
                   />
-                  <p className="text-[10px] text-muted-foreground">In INR per annum (optional)</p>
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="job-desc" className="text-xs font-semibold">Job Description *</Label>
+                <Label htmlFor="description" className="text-xs font-semibold">Role Overview & Responsibilities *</Label>
                 <Textarea
-                  id="job-desc"
-                  placeholder="Detail core day-to-day responsibilities, scope, tech stack, and goals..."
+                  id="description"
                   rows={4}
+                  placeholder="Outline core day-to-day work, engineering stack, or expectations..."
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  className="text-xs leading-relaxed"
+                  disabled={loading}
                   required
                 />
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="job-req" className="text-xs font-semibold">Qualifications & Requirements (Optional)</Label>
+                <Label htmlFor="requirements" className="text-xs font-semibold">Key Requirements & Skills</Label>
                 <Textarea
-                  id="job-req"
-                  placeholder="Specific requirements, education, key tool competencies..."
+                  id="requirements"
                   rows={3}
+                  placeholder="e.g. React, Node.js, SQL, REST APIs, System Design..."
                   value={requirements}
                   onChange={(e) => setRequirements(e.target.value)}
-                  className="text-xs leading-relaxed"
+                  disabled={loading}
                 />
               </div>
 
-              <div className="pt-2 flex flex-col sm:flex-row gap-3">
-                <Button type="submit" className="h-11 flex-1 font-semibold text-sm shadow-md shadow-primary/20" disabled={loading}>
-                  {loading ? "Publishing Job..." : "Publish Job Opening →"}
-                </Button>
-                <Link to="/dashboard/my-jobs">
-                  <Button type="button" variant="outline" className="h-11 w-full sm:w-auto text-xs">
+              <div className="pt-2 flex flex-col sm:flex-row items-center justify-end gap-3">
+                <Link to="/dashboard/my-jobs" className="w-full sm:w-auto">
+                  <Button type="button" variant="outline" className="w-full sm:w-auto text-xs" disabled={loading}>
                     Cancel
                   </Button>
                 </Link>
+                {isSubscriptionBlocked ? (
+                  <Button
+                    type="button"
+                    onClick={() => setShowPackagesModal(true)}
+                    className="w-full sm:w-auto text-xs font-semibold gap-1.5"
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                    {!planActive ? "Subscribe to Post Jobs" : "Upgrade Package to Post"}
+                  </Button>
+                ) : (
+                  <Button
+                    type="submit"
+                    className="w-full sm:w-auto shadow-md shadow-primary/20 text-xs font-semibold"
+                    disabled={loading}
+                  >
+                    {loading ? "Publishing Opening..." : "Publish Job Opening"}
+                  </Button>
+                )}
               </div>
             </form>
           </CardContent>
         </Card>
       )}
+
+      <PackagesModal
+        isOpen={showPackagesModal}
+        onClose={() => setShowPackagesModal(false)}
+      />
     </PageTransition>
   )
 }

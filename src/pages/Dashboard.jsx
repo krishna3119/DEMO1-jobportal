@@ -4,10 +4,14 @@ import {
   User, 
   Briefcase, 
   Bookmark, 
-  Coins, 
+  Layers, 
   PlusCircle, 
   TrendingUp, 
-  ArrowRight
+  ArrowRight,
+  MapPin,
+  Calendar,
+  Building2,
+  Sparkles
 } from "lucide-react"
 import { motion, useReducedMotion } from "framer-motion"
 import { useAuth } from "@/context/AuthContext"
@@ -18,16 +22,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Skeleton } from "@/components/ui/skeleton"
 import { AnimatedCounter } from "@/components/ui/animated-counter"
 import PageTransition from "@/components/PageTransition"
+import PackagesModal from "@/components/PackagesModal"
+import { isPlanActive, getPlanDisplayName, formatExpiry } from "@/lib/subscriptionPlans"
 
 export default function Dashboard() {
   const { user, profile } = useAuth()
   const role = profile?.role || "candidate"
-  const userCredits = profile?.credits ?? 500
   const shouldReduceMotion = useReducedMotion()
 
   const [companyName, setCompanyName] = useState("")
   const [transactions, setTransactions] = useState([])
   const [loadingTransactions, setLoadingTransactions] = useState(false)
+  const [showPackagesModal, setShowPackagesModal] = useState(false)
 
   const [metrics, setMetrics] = useState({
     total: 0,
@@ -37,8 +43,19 @@ export default function Dashboard() {
     rejected: 0,
     selectionRate: "0%",
     last7Days: 0,
-    creditsSpent: 0,
+    unlockedCount: 0,
   })
+
+  const planActive = isPlanActive(profile)
+  const planName = getPlanDisplayName(profile?.active_plan)
+  const expiryText = formatExpiry(profile?.plan_expires_at)
+  const cvsRemaining = profile?.cv_unlocks_remaining ?? 0
+  const cvsLimit = profile?.cv_unlocks_limit ?? 0
+  const jobsUsed = profile?.job_posts_used ?? 0
+  const jobsLimit = profile?.job_posts_limit ?? 0
+  const allowedCities = profile?.allowed_cities || []
+  const citiesUsed = allowedCities.length
+  const citiesLimit = profile?.cities_limit ?? 0
 
   useEffect(() => {
     async function loadRecruiterData() {
@@ -54,7 +71,7 @@ export default function Dashboard() {
 
           const { data: compApps } = await supabase
             .from("applications")
-            .select("id, status, created_at, credits_charged")
+            .select("id, status, created_at, is_unlocked")
             .eq("company_id", currentComp.id)
 
           if (compApps) {
@@ -64,11 +81,10 @@ export default function Dashboard() {
             const selected = compApps.filter((a) => a.status === "selected").length
             const rejected = compApps.filter((a) => a.status === "rejected").length
             const selectionRate = total > 0 ? ((selected / total) * 100).toFixed(1) + "%" : "0%"
+            const unlockedCount = compApps.filter((a) => a.is_unlocked).length
 
             const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
             const last7Days = compApps.filter((a) => new Date(a.created_at) >= sevenDaysAgo).length
-
-            const creditsSpent = compApps.reduce((acc, a) => acc + (a.credits_charged || 5), 0)
 
             setMetrics({
               total,
@@ -78,7 +94,7 @@ export default function Dashboard() {
               rejected,
               selectionRate,
               last7Days,
-              creditsSpent,
+              unlockedCount,
             })
           }
         }
@@ -124,9 +140,25 @@ export default function Dashboard() {
         </div>
         <div className="flex items-center gap-2.5 flex-wrap">
           {role === "recruiter" && (
-            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-800 text-xs font-semibold">
-              <Coins className="h-3.5 w-3.5 text-amber-600" />
-              <span>{userCredits} Credits Balance</span>
+            <div className="flex items-center gap-2">
+              <div
+                className={`flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-semibold ${
+                  planActive
+                    ? "bg-primary/10 border-primary/30 text-primary"
+                    : "bg-amber-500/10 border-amber-500/30 text-amber-800"
+                }`}
+              >
+                <Layers className="h-3.5 w-3.5" />
+                <span>{planActive ? `${planName} (${cvsRemaining} CVs remaining)` : "No Active Package"}</span>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 text-xs font-semibold border-primary/40 text-primary hover:bg-primary/10"
+                onClick={() => setShowPackagesModal(true)}
+              >
+                Upgrade / Buy Package
+              </Button>
             </div>
           )}
           <span className="text-xs text-muted-foreground font-medium">Account Role:</span>
@@ -135,6 +167,77 @@ export default function Dashboard() {
           </Badge>
         </div>
       </div>
+
+      {role === "recruiter" && (
+        <Card className="border-primary/20 bg-gradient-to-r from-primary/5 via-card to-card shadow-sm">
+          <CardContent className="p-4 sm:p-5">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <Badge variant={planActive ? "default" : "destructive"} className="text-[10px] uppercase font-bold tracking-wider">
+                    {planActive ? "Active Subscription" : "Subscription Required"}
+                  </Badge>
+                  <span className="text-xs font-semibold text-muted-foreground">
+                    {expiryText}
+                  </span>
+                </div>
+                <h3 className="text-xl sm:text-2xl font-heading font-extrabold text-foreground">
+                  {planName}
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  Pooled CV unlock quota is shared across all your job postings under this active subscription.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3 sm:gap-4 p-3 rounded-xl bg-card border text-center">
+                <div className="px-2">
+                  <span className="text-[10px] uppercase font-bold text-muted-foreground block">
+                    Job Posts
+                  </span>
+                  <p className="text-base sm:text-lg font-heading font-extrabold text-foreground">
+                    {jobsUsed} / {jobsLimit}
+                  </p>
+                  <span className="text-[10px] text-muted-foreground">
+                    {Math.max(0, jobsLimit - jobsUsed)} left
+                  </span>
+                </div>
+                <div className="px-2 border-l border-r">
+                  <span className="text-[10px] uppercase font-bold text-primary block">
+                    Pooled CVs
+                  </span>
+                  <p className="text-base sm:text-lg font-heading font-extrabold text-primary">
+                    {cvsRemaining} / {cvsLimit}
+                  </p>
+                  <span className="text-[10px] text-muted-foreground">
+                    remaining
+                  </span>
+                </div>
+                <div className="px-2">
+                  <span className="text-[10px] uppercase font-bold text-muted-foreground block">
+                    Cities
+                  </span>
+                  <p className="text-base sm:text-lg font-heading font-extrabold text-foreground">
+                    {citiesUsed} / {citiesLimit}
+                  </p>
+                  <span className="text-[10px] text-muted-foreground truncate block max-w-[100px]" title={allowedCities.join(", ") || "None"}>
+                    {allowedCities.length > 0 ? allowedCities.join(", ") : "allowed"}
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <Button
+                  onClick={() => setShowPackagesModal(true)}
+                  className="w-full lg:w-auto h-10 px-5 font-semibold gap-1.5 shadow-sm"
+                >
+                  <Sparkles className="h-4 w-4" />
+                  Upgrade / Buy Package
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
         <Card className="shadow-sm">
@@ -235,39 +338,36 @@ export default function Dashboard() {
               <CardHeader className="pb-3">
                 <div className="flex justify-between items-start gap-2">
                   <div className="flex items-center gap-2.5">
-                    <div className="h-9 w-9 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center font-bold">
-                      <Coins className="h-4 w-4" />
+                    <div className="h-9 w-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold">
+                      <Layers className="h-4 w-4" />
                     </div>
                     <div>
-                      <CardTitle className="text-base font-heading font-bold">Recruiter Credits</CardTitle>
+                      <CardTitle className="text-base font-heading font-bold">Pooled CV Quota</CardTitle>
                       <CardDescription className="text-xs">
-                        Wallet Balance
+                        Shared across all jobs
                       </CardDescription>
                     </div>
                   </div>
-                  <div className="flex flex-col items-end gap-1">
-                    <Badge variant="outline" className="text-[10px] font-mono">
-                      5 pts / application received
-                    </Badge>
-                    <Badge variant="outline" className="text-[10px] font-mono">
-                      10 pts / resume unlocked
-                    </Badge>
-                  </div>
+                  <Badge variant="outline" className="text-[10px] font-mono">
+                    1 CV / unlock
+                  </Badge>
                 </div>
               </CardHeader>
               <CardContent className="space-y-3 pt-0">
                 <div className="text-3xl font-heading font-extrabold text-primary">
-                  <AnimatedCounter value={userCredits} suffix=" Credits" />
+                  <AnimatedCounter value={cvsRemaining} suffix=" CVs" />
                 </div>
                 <p className="text-[11px] text-muted-foreground leading-relaxed">
-                  Credits are used when candidates apply to your jobs (5 pts) and when unlocking candidate resumes (10 pts).
+                  All candidate resumes unlocked deduct 1 CV from your single pooled quota. Candidates apply 100% free.
                 </p>
                 <div className="pt-1">
-                  <Link to="/dashboard/credits">
-                    <Button size="sm" className="w-full text-xs h-8 font-semibold gap-1.5 shadow-sm">
-                      <Coins className="h-3.5 w-3.5" /> Recharge Credits
-                    </Button>
-                  </Link>
+                  <Button
+                    size="sm"
+                    onClick={() => setShowPackagesModal(true)}
+                    className="w-full text-xs h-8 font-semibold gap-1.5 shadow-sm"
+                  >
+                    <Sparkles className="h-3.5 w-3.5" /> Upgrade / Buy Package
+                  </Button>
                 </div>
               </CardContent>
             </Card>
@@ -279,23 +379,37 @@ export default function Dashboard() {
                     <Briefcase className="h-4 w-4" />
                   </div>
                   <div>
-                    <CardTitle className="text-base font-heading font-bold">Manage Postings</CardTitle>
-                    <CardDescription className="text-xs">Active and paused listings</CardDescription>
+                    <CardTitle className="text-base font-heading font-bold">Job Postings</CardTitle>
+                    <CardDescription className="text-xs">
+                      {companyName || "Organization"}
+                    </CardDescription>
                   </div>
                 </div>
               </CardHeader>
               <CardContent className="space-y-3 text-xs pt-0">
-                <p className="text-muted-foreground leading-relaxed">
-                  Review applicant pipelines, toggle listing availability, and create new openings.
-                </p>
-                <div className="grid grid-cols-2 gap-2">
-                  <Link to="/jobs/new">
-                    <Button size="sm" className="w-full text-xs h-9 gap-1 font-semibold">
-                      <PlusCircle className="h-3.5 w-3.5" /> Post Job
+                <div className="space-y-1">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">Postings Used:</span>
+                    <strong className="text-foreground">{jobsUsed} of {jobsLimit} jobs</strong>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">City Restriction:</span>
+                    <strong className="text-foreground">{citiesLimit} {citiesLimit === 1 ? "City" : "Cities"}</strong>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2 pt-1">
+                  <Link to="/jobs/new" className="block">
+                    <Button
+                      size="sm"
+                      disabled={!planActive || jobsUsed >= jobsLimit}
+                      className="w-full text-xs h-8 font-semibold gap-1"
+                    >
+                      <PlusCircle className="h-3.5 w-3.5" />
+                      Post Job
                     </Button>
                   </Link>
-                  <Link to="/dashboard/my-jobs">
-                    <Button variant="outline" size="sm" className="w-full text-xs h-9 font-semibold">
+                  <Link to="/dashboard/my-jobs" className="block">
+                    <Button variant="outline" size="sm" className="w-full text-xs h-8 font-semibold">
                       My Jobs
                     </Button>
                   </Link>
@@ -307,64 +421,53 @@ export default function Dashboard() {
       </div>
 
       {role === "recruiter" && (
-        <Card className="shadow-sm mt-6">
-          <CardHeader className="pb-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <div>
-                <CardTitle className="text-lg font-heading font-bold flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5 text-primary" />
-                  <span>Hiring Pipeline Metrics</span>
-                </CardTitle>
-                <CardDescription className="text-xs">
-                  {companyName ? `Company-level performance for ${companyName}` : "Company hiring overview"}
-                </CardDescription>
+        <Card className="shadow-sm">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="h-9 w-9 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center font-bold">
+                  <TrendingUp className="h-4 w-4" />
+                </div>
+                <div>
+                  <CardTitle className="text-base font-heading font-bold">Candidate Pipeline & Applications</CardTitle>
+                  <CardDescription className="text-xs">
+                    Live candidate volume and interview funnel performance
+                  </CardDescription>
+                </div>
               </div>
-              <Badge variant="outline" className="text-xs font-mono w-fit">
-                Last 7 Days: <AnimatedCounter value={metrics.last7Days} />
-              </Badge>
             </div>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-4 pt-0">
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-              <div className="bg-muted/40 p-3.5 rounded-xl border text-center space-y-1">
-                <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Total Applicants</span>
-                <p className="text-2xl font-heading font-extrabold text-foreground">
-                  <AnimatedCounter value={metrics.total} />
-                </p>
+              <div className="p-3 rounded-xl bg-muted/30 border">
+                <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Total Received</span>
+                <p className="text-2xl font-heading font-extrabold text-foreground">{metrics.total}</p>
               </div>
-              <div className="bg-blue-500/10 p-3.5 rounded-xl border border-blue-500/20 text-center space-y-1">
+              <div className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/20">
                 <span className="text-[10px] text-blue-700 uppercase font-bold tracking-wider">Applied</span>
-                <p className="text-2xl font-heading font-extrabold text-blue-600">
-                  <AnimatedCounter value={metrics.applied} />
-                </p>
+                <p className="text-2xl font-heading font-extrabold text-blue-700">{metrics.applied}</p>
               </div>
-              <div className="bg-amber-500/10 p-3.5 rounded-xl border border-amber-500/20 text-center space-y-1">
+              <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20">
                 <span className="text-[10px] text-amber-700 uppercase font-bold tracking-wider">Shortlisted</span>
-                <p className="text-2xl font-heading font-extrabold text-amber-600">
-                  <AnimatedCounter value={metrics.shortlisted} />
-                </p>
+                <p className="text-2xl font-heading font-extrabold text-amber-700">{metrics.shortlisted}</p>
               </div>
-              <div className="bg-emerald-500/10 p-3.5 rounded-xl border border-emerald-500/20 text-center space-y-1">
+              <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
                 <span className="text-[10px] text-emerald-700 uppercase font-bold tracking-wider">Selected</span>
-                <p className="text-2xl font-heading font-extrabold text-emerald-600">
-                  <AnimatedCounter value={metrics.selected} />
-                </p>
+                <p className="text-2xl font-heading font-extrabold text-emerald-700">{metrics.selected}</p>
               </div>
-              <div className="bg-rose-500/10 p-3.5 rounded-xl border border-rose-500/20 text-center space-y-1">
-                <span className="text-[10px] text-rose-700 uppercase font-bold tracking-wider">Rejected</span>
-                <p className="text-2xl font-heading font-extrabold text-rose-600">
-                  <AnimatedCounter value={metrics.rejected} />
-                </p>
+              <div className="p-3 rounded-xl bg-destructive/10 border border-destructive/20">
+                <span className="text-[10px] text-destructive uppercase font-bold tracking-wider">Rejected</span>
+                <p className="text-2xl font-heading font-extrabold text-destructive">{metrics.rejected}</p>
               </div>
-              <div className="bg-muted/40 p-3.5 rounded-xl border text-center space-y-1">
-                <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Selection Rate</span>
-                <p className="text-2xl font-heading font-extrabold text-foreground">{metrics.selectionRate}</p>
+              <div className="p-3 rounded-xl bg-primary/10 border border-primary/20">
+                <span className="text-[10px] text-primary uppercase font-bold tracking-wider">CVs Unlocked</span>
+                <p className="text-2xl font-heading font-extrabold text-primary">{metrics.unlockedCount}</p>
               </div>
             </div>
 
             <div className="pt-3 border-t flex flex-wrap justify-between items-center text-xs text-muted-foreground gap-2">
               <span>
-                Total Credits Spent on Applications: <strong className="text-foreground"><AnimatedCounter value={metrics.creditsSpent} suffix=" cr" /></strong>
+                Selection Conversion Rate: <strong className="text-foreground">{metrics.selectionRate}</strong>
               </span>
               <span>
                 Recent Applicants (Last 7 Days): <strong className="text-foreground"><AnimatedCounter value={metrics.last7Days} /></strong>
@@ -377,9 +480,9 @@ export default function Dashboard() {
       {role === "recruiter" && (
         <Card className="shadow-sm mt-6">
           <CardHeader className="pb-3">
-            <CardTitle className="text-lg font-heading font-bold">Credit Transactions (Last 20 Activity Logs)</CardTitle>
+            <CardTitle className="text-lg font-heading font-bold">Subscription & CV Unlock Activity</CardTitle>
             <CardDescription className="text-xs">
-              Immutable audit log of credits recharged and points deducted for applications & resume unlocks.
+              Immutable audit log of package activations and pooled CV unlocks.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -391,7 +494,7 @@ export default function Dashboard() {
               </div>
             ) : transactions.length === 0 ? (
               <div className="text-center py-8 border border-dashed rounded-xl text-xs text-muted-foreground">
-                No credit transactions recorded yet for this account.
+                No subscription or CV unlock activity recorded yet for this account.
               </div>
             ) : (
               <div className="overflow-x-auto rounded-xl border">
@@ -400,7 +503,7 @@ export default function Dashboard() {
                     <tr>
                       <th className="py-2.5 px-3">Date</th>
                       <th className="py-2.5 px-3">Transaction Type</th>
-                      <th className="py-2.5 px-3">Points</th>
+                      <th className="py-2.5 px-3">Units</th>
                       <th className="py-2.5 px-3">Description</th>
                     </tr>
                   </thead>
@@ -418,8 +521,8 @@ export default function Dashboard() {
                             {(entry.transaction_type || "").replace(/_/g, " ")}
                           </Badge>
                         </td>
-                        <td className={`py-2.5 px-3 font-bold font-mono ${entry.amount > 0 ? "text-emerald-600" : "text-destructive"}`}>
-                          {entry.amount > 0 ? `+${entry.amount}` : entry.amount} pts
+                        <td className={`py-2.5 px-3 font-bold font-mono ${entry.amount > 0 ? "text-emerald-600" : "text-primary"}`}>
+                          {entry.amount > 0 ? `+${entry.amount} CVs` : `${entry.amount} CV`}
                         </td>
                         <td className="py-2.5 px-3 text-muted-foreground">
                           {entry.description || "—"}
@@ -433,6 +536,11 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       )}
+
+      <PackagesModal
+        isOpen={showPackagesModal}
+        onClose={() => setShowPackagesModal(false)}
+      />
     </PageTransition>
   )
 }
