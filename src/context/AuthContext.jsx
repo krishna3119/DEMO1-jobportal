@@ -23,25 +23,13 @@ export function AuthProvider({ children }) {
         .maybeSingle()
 
       if (error) {
+        console.error("Error fetching profile:", error)
         return null
       }
-
-      let userProfile = data
-      if (userProfile) {
-        try {
-          const cachedSub = localStorage.getItem(`jpc_recruiter_subscription_${userId}`)
-          if (cachedSub) {
-            const parsed = JSON.parse(cachedSub)
-            if (parsed && (!userProfile.active_plan || userProfile.active_plan === "none" || !userProfile.plan_expires_at)) {
-              userProfile = { ...userProfile, ...parsed }
-            }
-          }
-        } catch (_) {}
-      }
-
-      setProfile(userProfile)
-      return userProfile
-    } catch (_) {
+      setProfile(data)
+      return data
+    } catch (err) {
+      console.error("Unexpected error fetching profile:", err)
       return null
     }
   }
