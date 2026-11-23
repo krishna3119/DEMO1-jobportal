@@ -9,7 +9,6 @@ import {
   CheckCircle2, 
   ArrowRight, 
   Inbox, 
-  Sparkles,
   ExternalLink,
   XCircle,
   Award
@@ -164,7 +163,7 @@ export default function MyApplications() {
       case "applied":
         return <Clock className="h-3.5 w-3.5 text-blue-600 " />
       case "shortlisted":
-        return <Sparkles className="h-3.5 w-3.5 text-amber-600 " />
+        return <CheckCircle2 className="h-3.5 w-3.5 text-amber-600 " />
       case "selected":
         return <Award className="h-3.5 w-3.5 text-emerald-600 " />
       case "rejected":
@@ -176,7 +175,6 @@ export default function MyApplications() {
 
   return (
     <PageTransition className="space-y-6">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-heading font-extrabold tracking-tight text-foreground">
@@ -198,7 +196,6 @@ export default function MyApplications() {
         </Alert>
       )}
 
-      {/* Skeletons while loading */}
       {loading ? (
         <div className="space-y-4">
           {[1, 2, 3].map((i) => (
@@ -215,7 +212,6 @@ export default function MyApplications() {
           ))}
         </div>
       ) : applications.length === 0 ? (
-        /* Empty state */
         <Card className="rounded-2xl border-dashed p-10 sm:p-14 text-center space-y-4 bg-card/40">
           <div className="h-12 w-12 rounded-2xl bg-muted/80 text-muted-foreground flex items-center justify-center mx-auto">
             <Inbox className="h-6 w-6" />
@@ -236,7 +232,6 @@ export default function MyApplications() {
           </Link>
         </Card>
       ) : (
-        /* Applications List */
         <div className="space-y-4">
           {applications.map((app) => {
             const timeline = app.timeline || []
@@ -304,7 +299,6 @@ export default function MyApplications() {
                     </div>
                   </div>
 
-                  {/* Animated Status Timeline */}
                   <div className="pt-3 border-t">
                     <p className="text-[11px] font-semibold text-muted-foreground mb-2.5 flex items-center gap-1">
                       <Clock className="h-3.5 w-3.5" />

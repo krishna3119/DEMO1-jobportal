@@ -8,7 +8,6 @@ import {
   Filter, 
   CheckCircle2, 
   XCircle, 
-  Sparkles, 
   Award, 
   Clock, 
   ChevronDown, 
@@ -299,7 +298,6 @@ export default function JobApplicants() {
             className="h-8 text-xs font-semibold border-primary/40 text-primary hover:bg-primary/10"
             onClick={() => setShowPackagesModal(true)}
           >
-            <Sparkles className="h-3 w-3 mr-1" />
             Buy / Upgrade Plan
           </Button>
           <Badge variant={job?.status === "open" ? "default" : "secondary"} className="text-xs">
@@ -474,7 +472,6 @@ export default function JobApplicants() {
                           className="h-7 text-xs border-amber-600/40 text-amber-700 hover:bg-amber-500/10"
                           onClick={() => handleInitiateStatusChange(app, "shortlisted")}
                         >
-                          <Sparkles className="h-3 w-3 mr-1" />
                           Shortlist
                         </Button>
                         <Button
@@ -597,7 +594,7 @@ export default function JobApplicants() {
               <div className="flex items-center justify-between pb-2 border-b">
                 <div className="flex items-center gap-2">
                   <div className="h-8 w-8 rounded-full bg-primary/10 text-primary flex items-center justify-center">
-                    <Sparkles className="h-4 w-4" />
+                    <CheckCircle2 className="h-4 w-4" />
                   </div>
                   <div>
                     <h3 className="font-heading font-bold text-base text-foreground">

@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { Link, useNavigate, useLocation } from "react-router-dom"
-import { Lock, Mail, ShieldAlert, Sparkles, Phone, ArrowRight, RotateCcw } from "lucide-react"
+import { Lock, Mail, ShieldAlert, Phone, ArrowRight, RotateCcw } from "lucide-react"
 import { useAuth } from "@/context/AuthContext"
 import { supabase } from "@/lib/supabase"
 import { normalizePhoneNumber, isValidPhoneNumber, formatIndianDisplay } from "@/lib/phoneUtils"
@@ -494,8 +494,8 @@ export default function Login() {
         <CardFooter className="flex justify-center border-t py-4 bg-muted/20 rounded-b-xl">
           <p className="text-xs text-muted-foreground">
             Don&apos;t have an account?{" "}
-            <Link to="/signup" className="text-primary font-bold hover:underline inline-flex items-center gap-1">
-              <Sparkles className="h-3 w-3" /> Sign Up
+            <Link to="/signup" className="text-primary font-bold hover:underline">
+              Sign Up
             </Link>
           </p>
         </CardFooter>

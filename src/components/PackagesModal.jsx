@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { X, Check, ShieldCheck, Sparkles, Building2, Layers, MapPin, Calendar, CreditCard, ArrowRight, AlertCircle, CheckCircle2 } from "lucide-react"
+import { X, Check, ShieldCheck, Building2, Layers, MapPin, Calendar, CreditCard, ArrowRight, AlertCircle, CheckCircle2 } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/context/AuthContext"
 import { Button } from "@/components/ui/button"
@@ -147,7 +147,7 @@ export default function PackagesModal({ isOpen, onClose, onSuccess, initialPlanI
           <div>
             <div className="flex items-center gap-2">
               <span className="h-8 w-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
-                <Sparkles className="h-4 w-4" />
+                <Layers className="h-4 w-4" />
               </span>
               <h2 className="text-xl sm:text-2xl font-heading font-extrabold text-foreground">
                 Recruiter Subscription Packages

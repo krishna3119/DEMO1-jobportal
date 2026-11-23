@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { useNavigate, Link } from "react-router-dom"
-import { Briefcase, AlertTriangle, ArrowLeft, Shield, Sparkles, Layers, MapPin, CheckCircle2 } from "lucide-react"
+import { Briefcase, AlertTriangle, ArrowLeft, Shield, Layers, MapPin, CheckCircle2 } from "lucide-react"
 import { useAuth } from "@/context/AuthContext"
 import { supabase } from "@/lib/supabase"
 import { Button } from "@/components/ui/button"
@@ -241,7 +241,6 @@ export default function PostJob() {
                 className="h-7 text-xs px-2.5 font-semibold self-start sm:self-auto border-primary/40 text-primary hover:bg-primary/10"
                 onClick={() => setShowPackagesModal(true)}
               >
-                <Sparkles className="h-3 w-3 mr-1" />
                 Upgrade / Renew Plan
               </Button>
             </div>
@@ -522,9 +521,8 @@ export default function PostJob() {
                   <Button
                     type="button"
                     onClick={() => setShowPackagesModal(true)}
-                    className="w-full sm:w-auto text-xs font-semibold gap-1.5"
+                    className="w-full sm:w-auto text-xs font-semibold"
                   >
-                    <Sparkles className="h-3.5 w-3.5" />
                     {!planActive ? "Subscribe to Post Jobs" : "Upgrade Package to Post"}
                   </Button>
                 ) : (

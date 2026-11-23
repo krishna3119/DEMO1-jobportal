@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import PageTransition from "@/components/PageTransition"
-import { Phone, ShieldCheck, ArrowRight, RotateCcw, Sparkles } from "lucide-react"
+import { Phone, ShieldCheck, ArrowRight, RotateCcw } from "lucide-react"
 
 function GoogleIcon({ className = "h-5 w-5" }) {
   return (
@@ -338,7 +338,7 @@ export default function PhoneAuth() {
 
                 <div className="rounded-xl border bg-muted/40 p-3 space-y-1 text-left">
                   <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
-                    <Sparkles className="h-3.5 w-3.5 text-brand-orange" />
+                    <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
                     <span>Passwordless & Secure</span>
                   </div>
                   <p className="text-[11px] text-muted-foreground leading-relaxed">

@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
-import { UserPlus, User, Mail, Sparkles, CheckCircle2, Phone, ArrowRight, RotateCcw } from "lucide-react"
+import { UserPlus, User, Mail, CheckCircle2, Phone, ArrowRight, RotateCcw } from "lucide-react"
 import { useAuth } from "@/context/AuthContext"
 import { supabase } from "@/lib/supabase"
 import { normalizePhoneNumber, isValidPhoneNumber, formatIndianDisplay } from "@/lib/phoneUtils"
@@ -535,8 +535,8 @@ export default function Signup() {
         <CardFooter className="flex justify-center border-t py-4 bg-muted/20 rounded-b-xl">
           <p className="text-xs text-muted-foreground">
             Already have an account?{" "}
-            <Link to="/login" className="text-primary font-bold hover:underline inline-flex items-center gap-1">
-              <Sparkles className="h-3 w-3" /> Login
+            <Link to="/login" className="text-primary font-bold hover:underline">
+              Login
             </Link>
           </p>
         </CardFooter>

@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { Link, NavLink, useNavigate } from "react-router-dom"
-import { Briefcase, Menu, X, Sparkles, User, LogOut, Layers, Building2, MapPin, Calendar, PlusCircle } from "lucide-react"
+import { Briefcase, Menu, X, User, LogOut, Layers, Building2, MapPin, Calendar, PlusCircle } from "lucide-react"
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion"
 import { useAuth } from "@/context/AuthContext"
 import { Button } from "@/components/ui/button"
@@ -179,7 +179,6 @@ export default function Navbar() {
               </Link>
               <Link to="/signup">
                 <Button size="sm" className="h-9 shadow-sm shadow-primary/20">
-                  <Sparkles className="h-3.5 w-3.5 mr-1" />
                   Sign Up
                 </Button>
               </Link>

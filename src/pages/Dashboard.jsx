@@ -10,8 +10,7 @@ import {
   ArrowRight,
   MapPin,
   Calendar,
-  Building2,
-  Sparkles
+  Building2
 } from "lucide-react"
 import { motion, useReducedMotion } from "framer-motion"
 import { useAuth } from "@/context/AuthContext"
@@ -230,7 +229,6 @@ export default function Dashboard() {
                   onClick={() => setShowPackagesModal(true)}
                   className="w-full lg:w-auto h-10 px-5 font-semibold gap-1.5 shadow-sm"
                 >
-                  <Sparkles className="h-4 w-4" />
                   Upgrade / Buy Package
                 </Button>
               </div>
@@ -364,9 +362,9 @@ export default function Dashboard() {
                   <Button
                     size="sm"
                     onClick={() => setShowPackagesModal(true)}
-                    className="w-full text-xs h-8 font-semibold gap-1.5 shadow-sm"
+                    className="w-full text-xs h-8 font-semibold shadow-sm"
                   >
-                    <Sparkles className="h-3.5 w-3.5" /> Upgrade / Buy Package
+                    Upgrade / Buy Package
                   </Button>
                 </div>
               </CardContent>

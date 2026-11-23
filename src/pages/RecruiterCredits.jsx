@@ -6,7 +6,6 @@ import {
   CheckCircle2, 
   ArrowLeft, 
   AlertCircle, 
-  Sparkles, 
   Building2, 
   MapPin, 
   Calendar, 
@@ -102,9 +101,8 @@ export default function RecruiterCredits() {
         <div className="flex items-center gap-2">
           <Button
             onClick={() => handleOpenSubscribe(profile?.active_plan || "monthly")}
-            className="h-9 text-xs font-semibold gap-1.5 shadow-sm"
+            className="h-9 text-xs font-semibold shadow-sm"
           >
-            <Sparkles className="h-3.5 w-3.5" />
             Upgrade / Buy Package
           </Button>
         </div>

@@ -9,7 +9,7 @@ import {
   ArrowRight, 
   Building2, 
   ShieldCheck, 
-  Sparkles,
+  Layers,
   Users,
   FileCheck
 } from "lucide-react"
@@ -86,7 +86,7 @@ export default function Home() {
       desc: "Reach motivated developers, designers, and managers with filterable location and tech skill criteria.",
     },
     {
-      icon: Sparkles,
+      icon: Layers,
       title: "3. Pooled Subscription Quotas",
       desc: "Transparent packages with pooled CV unlocks across all job posts. Candidates apply 100% free.",
     },
@@ -123,7 +123,6 @@ export default function Home() {
     <PageTransition className="space-y-16 sm:space-y-24 py-4 sm:py-8 px-4 sm:px-6">
       <section className="relative overflow-hidden pt-4 pb-8 sm:py-12 text-center max-w-4xl mx-auto space-y-6">
         <div className="inline-flex items-center gap-2 rounded-full border border-brand-orange/30 bg-brand-orange/10 px-3.5 py-1.5 text-xs sm:text-sm font-semibold text-brand-orange shadow-sm backdrop-blur-sm">
-          <Sparkles className="h-4 w-4 animate-pulse text-brand-orange" />
           <span>JOBS | CAREER | OPPORTUNITIES</span>
           <span className="hidden sm:inline text-muted-foreground">•</span>
           <span className="hidden sm:inline text-muted-foreground">Zero Ghosting Policy</span>

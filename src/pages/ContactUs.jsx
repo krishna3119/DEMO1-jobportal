@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Phone, Mail, MapPin, CheckCircle2, Send, HelpCircle, Sparkles, Clock, MessageSquare, ArrowRight } from "lucide-react"
+import { Phone, Mail, MapPin, CheckCircle2, Send, HelpCircle, Clock, MessageSquare, ArrowRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -80,7 +80,6 @@ export default function ContactUs() {
     <PageTransition className="space-y-12 sm:space-y-16 py-6 sm:py-10 max-w-6xl mx-auto px-4 sm:px-6">
       <section className="text-center space-y-4 max-w-3xl mx-auto px-2 sm:px-4">
         <div className="inline-flex items-center gap-2 rounded-full border border-brand-orange/30 bg-brand-orange/10 px-3.5 py-1.5 text-xs font-bold text-brand-orange uppercase tracking-wider shadow-sm">
-          <Sparkles className="h-3.5 w-3.5 text-brand-orange" />
           <span>Jobs | Career | Opportunities</span>
         </div>
 
