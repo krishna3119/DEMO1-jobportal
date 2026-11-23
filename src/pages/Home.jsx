@@ -96,32 +96,26 @@ export default function Home() {
     {
       name: "Athena BPO",
       logo: "/work-logos/athena-bpo.png",
-      category: "Customer Experience & BPO",
     },
     {
       name: "EOS Globe",
       logo: "/work-logos/eos-globe.png",
-      category: "Business Process Management",
     },
     {
       name: "Epicenter Technologies",
       logo: "/work-logos/epicenter.png",
-      category: "Global Contact Centers",
     },
     {
       name: "Justdial",
       logo: "/work-logos/justdial.png",
-      category: "Local Search & Enterprise",
     },
     {
       name: "Kserve BPO",
       logo: "/work-logos/kserve.png",
-      category: "Back Office & Support Services",
     },
     {
       name: "Turtlemint",
       logo: "/work-logos/turtlemint.png",
-      category: "InsurTech & Fintech",
     },
   ]
 
@@ -352,9 +346,6 @@ export default function Home() {
 
       <section className="space-y-6 overflow-hidden">
         <div className="text-center max-w-xl mx-auto space-y-2">
-          <Badge variant="outline" className="text-primary border-primary/20">
-            Hiring Network
-          </Badge>
           <h2 className="text-2xl sm:text-3xl font-heading font-bold tracking-tight text-foreground">
             Companies We've Worked With
           </h2>
@@ -371,24 +362,14 @@ export default function Home() {
             {[...partnerCompanies, ...partnerCompanies, ...partnerCompanies].map((comp, idx) => (
               <div
                 key={idx}
-                className="flex flex-col items-center justify-center p-4 sm:p-5 h-32 sm:h-36 w-48 sm:w-60 rounded-2xl border bg-card hover:border-primary/40 shadow-xs hover:shadow-lg transition-all duration-200 group shrink-0 select-none"
+                className="flex items-center justify-center p-4 sm:p-5 h-24 sm:h-28 w-44 sm:w-56 rounded-2xl border bg-card hover:border-primary/40 shadow-xs hover:shadow-lg transition-all duration-200 group shrink-0 select-none"
               >
-                <div className="h-14 sm:h-16 w-full flex items-center justify-center">
-                  <img
-                    src={comp.logo}
-                    alt={comp.name}
-                    className="max-h-full max-w-[85%] object-contain transition-transform duration-200 group-hover:scale-105"
-                    loading="lazy"
-                  />
-                </div>
-                <div className="text-center mt-2 w-full">
-                  <p className="text-xs font-heading font-bold text-foreground truncate">
-                    {comp.name}
-                  </p>
-                  <p className="text-[10px] text-muted-foreground truncate">
-                    {comp.category}
-                  </p>
-                </div>
+                <img
+                  src={comp.logo}
+                  alt={comp.name}
+                  className="h-10 sm:h-12 w-auto max-w-[85%] object-contain transition-transform duration-200 group-hover:scale-105"
+                  loading="lazy"
+                />
               </div>
             ))}
           </div>
