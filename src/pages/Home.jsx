@@ -92,6 +92,39 @@ export default function Home() {
     },
   ]
 
+  const partnerCompanies = [
+    {
+      name: "Athena BPO",
+      logo: "/work-logos/athena-bpo.png",
+      category: "Customer Experience & BPO",
+    },
+    {
+      name: "EOS Globe",
+      logo: "/work-logos/eos-globe.png",
+      category: "Business Process Management",
+    },
+    {
+      name: "Epicenter Technologies",
+      logo: "/work-logos/epicenter.png",
+      category: "Global Contact Centers",
+    },
+    {
+      name: "Justdial",
+      logo: "/work-logos/justdial.png",
+      category: "Local Search & Enterprise",
+    },
+    {
+      name: "Kserve BPO",
+      logo: "/work-logos/kserve.png",
+      category: "Back Office & Support Services",
+    },
+    {
+      name: "Turtlemint",
+      logo: "/work-logos/turtlemint.png",
+      category: "InsurTech & Fintech",
+    },
+  ]
+
   return (
     <PageTransition className="space-y-16 sm:space-y-24 py-4 sm:py-8 px-4 sm:px-6">
       <section className="relative overflow-hidden pt-4 pb-8 sm:py-12 text-center max-w-4xl mx-auto space-y-6">
@@ -313,6 +346,51 @@ export default function Home() {
                 Register Your Company →
               </Button>
             </Link>
+          </div>
+        </div>
+      </section>
+
+      <section className="space-y-6 overflow-hidden">
+        <div className="text-center max-w-xl mx-auto space-y-2">
+          <Badge variant="outline" className="text-primary border-primary/20">
+            Hiring Network
+          </Badge>
+          <h2 className="text-2xl sm:text-3xl font-heading font-bold tracking-tight text-foreground">
+            Companies We've Worked With
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Trusted by leading enterprises and fast-growing organizations hiring talent across India.
+          </p>
+        </div>
+
+        <div className="relative w-full overflow-hidden py-4">
+          <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-16 sm:w-28 z-10 bg-gradient-to-r from-background to-transparent" />
+          <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-16 sm:w-28 z-10 bg-gradient-to-l from-background to-transparent" />
+
+          <div className="animate-slide-track gap-4 sm:gap-6 py-2">
+            {[...partnerCompanies, ...partnerCompanies, ...partnerCompanies].map((comp, idx) => (
+              <div
+                key={idx}
+                className="flex flex-col items-center justify-center p-4 sm:p-5 h-32 sm:h-36 w-48 sm:w-60 rounded-2xl border bg-card hover:border-primary/40 shadow-xs hover:shadow-lg transition-all duration-200 group shrink-0 select-none"
+              >
+                <div className="h-14 sm:h-16 w-full flex items-center justify-center">
+                  <img
+                    src={comp.logo}
+                    alt={comp.name}
+                    className="max-h-full max-w-[85%] object-contain transition-transform duration-200 group-hover:scale-105"
+                    loading="lazy"
+                  />
+                </div>
+                <div className="text-center mt-2 w-full">
+                  <p className="text-xs font-heading font-bold text-foreground truncate">
+                    {comp.name}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground truncate">
+                    {comp.category}
+                  </p>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </section>

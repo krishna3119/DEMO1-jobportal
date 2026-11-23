@@ -61,3 +61,22 @@
     scroll-behavior: auto !important;
   }
 }
+
+@keyframes slideTrack {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-33.333%);
+  }
+}
+
+.animate-slide-track {
+  display: flex;
+  width: max-content;
+  animation: slideTrack 28s linear infinite;
+}
+
+.animate-slide-track:hover {
+  animation-play-state: paused;
+}
