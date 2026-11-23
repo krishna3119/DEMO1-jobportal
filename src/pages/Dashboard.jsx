@@ -538,6 +538,9 @@ export default function Dashboard() {
       <PackagesModal
         isOpen={showPackagesModal}
         onClose={() => setShowPackagesModal(false)}
+        onSuccess={() => {
+          refreshProfile()
+        }}
       />
     </PageTransition>
   )

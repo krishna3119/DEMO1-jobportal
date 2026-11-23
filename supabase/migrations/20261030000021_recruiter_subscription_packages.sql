@@ -511,6 +511,23 @@ $$;
 REVOKE ALL ON FUNCTION public.activate_subscription_plan(text, text) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.activate_subscription_plan(text, text) TO authenticated;
 
+CREATE OR REPLACE FUNCTION public.activate_recruiter_subscription(
+  p_plan_id text,
+  p_payment_reference text DEFAULT NULL
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, auth
+AS $$
+BEGIN
+  RETURN public.activate_subscription_plan(p_plan_id, p_payment_reference);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.activate_recruiter_subscription(text, text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.activate_recruiter_subscription(text, text) TO authenticated;
+
 CREATE OR REPLACE FUNCTION public.admin_set_user_subscription(
   p_user_id uuid,
   p_plan_key text,
