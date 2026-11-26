@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { Link, useLocation } from "react-router-dom"
+import { Link, useLocation, useNavigate } from "react-router-dom"
 import { 
   Building2, 
   MapPin, 
@@ -25,8 +25,9 @@ import { Skeleton } from "@/components/ui/skeleton"
 import PageTransition from "@/components/PageTransition"
 
 export default function MyJobs() {
-  const { user, profile } = useAuth()
+  const { user, profile, refreshProfile } = useAuth()
   const location = useLocation()
+  const navigate = useNavigate()
   const shouldReduceMotion = useReducedMotion()
 
   const [jobs, setJobs] = useState([])
@@ -34,6 +35,9 @@ export default function MyJobs() {
   const [errorMsg, setErrorMsg] = useState("")
   const [noticeMsg, setNoticeMsg] = useState(location.state?.notice || "")
   const [actionLoadingId, setActionLoadingId] = useState(null)
+
+  const isPlanExpired = !profile?.plan_expires_at || new Date(profile.plan_expires_at) <= new Date()
+  const hasActivePlan = profile?.active_plan && profile?.active_plan !== "none" && !isPlanExpired
 
   const [editingJob, setEditingJob] = useState(null)
   const [editTitle, setEditTitle] = useState("")
@@ -106,24 +110,46 @@ export default function MyJobs() {
   }
 
   const handleToggleStatus = async (job) => {
-    const newStatus = job.status === "open" ? "closed" : "open"
-    setActionLoadingId(job.id)
+    const isCurrentlyOpen = job.status === "open"
+    const newStatus = isCurrentlyOpen ? "closed" : "open"
     setErrorMsg("")
-    try {
-      const nowIso = new Date().toISOString()
-      const { error } = await supabase
-        .from("jobs")
-        .update({ status: newStatus, updated_at: nowIso })
-        .eq("id", job.id)
+    setNoticeMsg("")
 
-      if (error) throw error
+    if (!isCurrentlyOpen && !hasActivePlan && profile?.role !== "admin") {
+      setErrorMsg("Cannot reopen job opening. Your subscription package is inactive or expired. Please renew your plan.")
+      return
+    }
+
+    setActionLoadingId(job.id)
+    try {
+      let updatedStatus = newStatus
+
+      const { data: rpcData, error: rpcError } = await supabase.rpc("toggle_job_status", {
+        p_job_id: job.id,
+      })
+
+      if (rpcError) {
+        const nowIso = new Date().toISOString()
+        const { error: directError } = await supabase
+          .from("jobs")
+          .update({ status: newStatus, updated_at: nowIso })
+          .eq("id", job.id)
+
+        if (directError) throw directError
+      } else if (rpcData && rpcData.status) {
+        updatedStatus = rpcData.status
+      }
 
       setJobs((prev) =>
-        prev.map((j) => (j.id === job.id ? { ...j, status: newStatus } : j))
+        prev.map((j) => (j.id === job.id ? { ...j, status: updatedStatus } : j))
+      )
+      setNoticeMsg(
+        updatedStatus === "open"
+          ? `Job "${job.title}" is now active and receiving applicants.`
+          : `Job "${job.title}" has been closed.`
       )
     } catch (err) {
       setErrorMsg(err.message || "Failed to update job status.")
-      alert(err.message || "Failed to update job status.")
     } finally {
       setActionLoadingId(null)
     }
@@ -143,9 +169,9 @@ export default function MyJobs() {
       if (error) throw error
 
       setJobs((prev) => prev.filter((j) => j.id !== jobId))
+      setNoticeMsg("Job opening deleted successfully.")
     } catch (err) {
       setErrorMsg(err.message || "Failed to delete job listing.")
-      alert(err.message || "Failed to delete job listing.")
     } finally {
       setActionLoadingId(null)
     }
@@ -162,11 +188,12 @@ export default function MyJobs() {
   const handleSaveEdit = async (e) => {
     e.preventDefault()
     if (!editTitle.trim() || !editLocation.trim()) {
-      alert("Title and location cannot be empty.")
+      setErrorMsg("Title and location cannot be empty.")
       return
     }
 
     setActionLoadingId(editingJob.id)
+    setErrorMsg("")
     try {
       const nowIso = new Date().toISOString()
       const { error } = await supabase
@@ -196,8 +223,9 @@ export default function MyJobs() {
         )
       )
       setEditingJob(null)
+      setNoticeMsg("Job details updated successfully.")
     } catch (err) {
-      alert(err.message || "Failed to save job changes.")
+      setErrorMsg(err.message || "Failed to save job changes.")
     } finally {
       setActionLoadingId(null)
     }
@@ -223,8 +251,8 @@ export default function MyJobs() {
       </div>
 
       {noticeMsg && (
-        <Alert className="border-amber-500/40 bg-amber-500/10 text-amber-900 text-xs py-2.5">
-          <AlertTriangle className="h-4 w-4 text-amber-600" />
+        <Alert className="border-emerald-500/40 bg-emerald-500/10 text-emerald-900 text-xs py-2.5">
+          <CheckCircle2 className="h-4 w-4 text-emerald-600" />
           <AlertDescription className="flex items-center justify-between">
             <span>{noticeMsg}</span>
             <button
@@ -239,7 +267,30 @@ export default function MyJobs() {
 
       {errorMsg && (
         <Alert variant="destructive" className="text-xs py-2.5">
-          <AlertDescription>{errorMsg}</AlertDescription>
+          <AlertDescription className="flex items-center justify-between gap-2">
+            <span>{errorMsg}</span>
+            <div className="flex items-center gap-2 shrink-0">
+              {(errorMsg.toLowerCase().includes("plan") ||
+                errorMsg.toLowerCase().includes("package") ||
+                errorMsg.toLowerCase().includes("subscription") ||
+                errorMsg.toLowerCase().includes("renew")) && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => navigate("/packages")}
+                  className="h-6 text-[11px] px-2.5 font-semibold bg-destructive/10 border-destructive/40 text-destructive hover:bg-destructive/20"
+                >
+                  View Packages →
+                </Button>
+              )}
+              <button
+                onClick={() => setErrorMsg("")}
+                className="text-xs font-semibold hover:underline cursor-pointer"
+              >
+                Dismiss
+              </button>
+            </div>
+          </AlertDescription>
         </Alert>
       )}
 
@@ -299,21 +350,25 @@ export default function MyJobs() {
                       >
                         {job.title}
                       </Link>
-                      {job.status === "open" ? (
+                      {job.status === "open" && !isPlanExpired ? (
                         <Badge className="bg-emerald-600/15 text-emerald-700 border border-emerald-600/30 text-[10px] font-bold">
                           Active
                         </Badge>
-                      ) : job.status === "paused" ? (
+                      ) : (job.status === "paused" || (job.status === "open" && isPlanExpired)) && isPlanExpired && profile?.role !== "admin" ? (
                         <div className="flex items-center gap-1.5">
                           <Badge variant="outline" className="border-amber-500/40 text-amber-700 bg-amber-500/10 text-[10px]">
                             Paused (Plan Expired)
                           </Badge>
-                          <Link to="/dashboard/credits">
+                          <Link to="/packages">
                             <Button size="sm" variant="default" className="h-5 text-[10px] px-2 py-0 font-semibold">
                               Renew Plan
                             </Button>
                           </Link>
                         </div>
+                      ) : job.status === "paused" ? (
+                        <Badge variant="outline" className="border-amber-500/40 text-amber-700 bg-amber-500/10 text-[10px]">
+                          Paused
+                        </Badge>
                       ) : (
                         <Badge variant="secondary" className="text-[10px]">
                           Closed
