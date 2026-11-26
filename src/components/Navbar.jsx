@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Link, NavLink, useNavigate } from "react-router-dom"
+import { Link, useLocation, useNavigate } from "react-router-dom"
 import { Briefcase, Menu, X, User, LogOut, Layers, Building2, MapPin, Calendar, PlusCircle } from "lucide-react"
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion"
 import { useAuth } from "@/context/AuthContext"
@@ -13,18 +13,32 @@ import { isPlanActive, getPlanDisplayName, formatExpiry } from "@/lib/subscripti
 export default function Navbar() {
   const { user, profile, signOut } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   const shouldReduceMotion = useReducedMotion()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [showPackagesModal, setShowPackagesModal] = useState(false)
 
-  const navLinkClass = ({ isActive }) =>
+  const pathname = location.pathname
+
+  const isHomeActive = pathname === "/"
+  const isJobsActive = pathname === "/jobs" || (pathname.startsWith("/jobs/") && !pathname.startsWith("/jobs/new") && !pathname.startsWith("/jobs/post"))
+  const isContactActive = pathname === "/contact" || pathname.startsWith("/contact/")
+  const isMyApplicationsActive = pathname === "/dashboard/my-applications" || pathname.startsWith("/dashboard/my-applications/")
+  const isSavedActive = pathname === "/saved" || pathname.startsWith("/saved/")
+  const isPostJobActive = pathname === "/jobs/new" || pathname === "/jobs/post" || pathname.startsWith("/jobs/new/") || pathname.startsWith("/jobs/post/")
+  const isMyJobsActive = pathname === "/dashboard/my-jobs" || pathname.startsWith("/dashboard/my-jobs/")
+  const isPackagesActive = pathname === "/dashboard/credits" || pathname.startsWith("/dashboard/credits/")
+  const isAdminActive = pathname === "/admin" || pathname.startsWith("/admin/")
+  const isDashboardActive = pathname === "/dashboard"
+
+  const navLinkClass = (isActive) =>
     `text-sm font-medium transition-colors hover:text-primary ${
       isActive
         ? "text-primary font-semibold relative after:absolute after:-bottom-6 after:left-0 after:right-0 after:h-0.5 after:bg-primary after:rounded-full"
         : "text-muted-foreground"
     }`
 
-  const mobileNavLinkClass = ({ isActive }) =>
+  const mobileNavLinkClass = (isActive) =>
     `flex items-center px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
       isActive
         ? "bg-primary/10 text-primary font-semibold"
@@ -76,51 +90,51 @@ export default function Navbar() {
         </Link>
 
         <nav className="hidden md:flex items-center space-x-6">
-          <NavLink to="/" className={navLinkClass}>
+          <Link to="/" className={navLinkClass(isHomeActive)}>
             Home
-          </NavLink>
-          <NavLink to="/jobs" className={navLinkClass}>
+          </Link>
+          <Link to="/jobs" className={navLinkClass(isJobsActive)}>
             Jobs
-          </NavLink>
-          <NavLink to="/contact" className={navLinkClass}>
+          </Link>
+          <Link to="/contact" className={navLinkClass(isContactActive)}>
             Contact Us
-          </NavLink>
+          </Link>
 
           {user && role === "candidate" && (
             <>
-              <NavLink to="/dashboard/my-applications" className={navLinkClass}>
+              <Link to="/dashboard/my-applications" className={navLinkClass(isMyApplicationsActive)}>
                 My Applications
-              </NavLink>
-              <NavLink to="/saved" className={navLinkClass}>
+              </Link>
+              <Link to="/saved" className={navLinkClass(isSavedActive)}>
                 Saved Jobs
-              </NavLink>
+              </Link>
             </>
           )}
 
           {user && role === "recruiter" && (
             <>
-              <NavLink to="/jobs/new" className={navLinkClass}>
+              <Link to="/jobs/new" className={navLinkClass(isPostJobActive)}>
                 Post a Job
-              </NavLink>
-              <NavLink to="/dashboard/my-jobs" className={navLinkClass}>
+              </Link>
+              <Link to="/dashboard/my-jobs" className={navLinkClass(isMyJobsActive)}>
                 My Jobs
-              </NavLink>
-              <NavLink to="/dashboard/credits" className={navLinkClass}>
+              </Link>
+              <Link to="/dashboard/credits" className={navLinkClass(isPackagesActive)}>
                 Packages
-              </NavLink>
+              </Link>
             </>
           )}
 
           {user && role === "admin" && (
-            <NavLink to="/admin" className={navLinkClass}>
+            <Link to="/admin" className={navLinkClass(isAdminActive)}>
               Admin Panel
-            </NavLink>
+            </Link>
           )}
 
           {user && role !== "admin" && (
-            <NavLink to="/dashboard" className={navLinkClass}>
+            <Link to="/dashboard" className={navLinkClass(isDashboardActive)}>
               Dashboard
-            </NavLink>
+            </Link>
           )}
         </nav>
 
@@ -285,51 +299,51 @@ export default function Navbar() {
             )}
 
             <div className="space-y-1">
-              <NavLink to="/" className={mobileNavLinkClass} onClick={() => setMobileMenuOpen(false)}>
+              <Link to="/" className={mobileNavLinkClass(isHomeActive)} onClick={() => setMobileMenuOpen(false)}>
                 Home
-              </NavLink>
-              <NavLink to="/jobs" className={mobileNavLinkClass} onClick={() => setMobileMenuOpen(false)}>
+              </Link>
+              <Link to="/jobs" className={mobileNavLinkClass(isJobsActive)} onClick={() => setMobileMenuOpen(false)}>
                 Explore Jobs
-              </NavLink>
-              <NavLink to="/contact" className={mobileNavLinkClass} onClick={() => setMobileMenuOpen(false)}>
+              </Link>
+              <Link to="/contact" className={mobileNavLinkClass(isContactActive)} onClick={() => setMobileMenuOpen(false)}>
                 Contact Us
-              </NavLink>
+              </Link>
 
               {user && role === "candidate" && (
                 <>
-                  <NavLink to="/dashboard/my-applications" className={mobileNavLinkClass} onClick={() => setMobileMenuOpen(false)}>
+                  <Link to="/dashboard/my-applications" className={mobileNavLinkClass(isMyApplicationsActive)} onClick={() => setMobileMenuOpen(false)}>
                     My Applications
-                  </NavLink>
-                  <NavLink to="/saved" className={mobileNavLinkClass} onClick={() => setMobileMenuOpen(false)}>
+                  </Link>
+                  <Link to="/saved" className={mobileNavLinkClass(isSavedActive)} onClick={() => setMobileMenuOpen(false)}>
                     Saved Jobs
-                  </NavLink>
+                  </Link>
                 </>
               )}
 
               {user && role === "recruiter" && (
                 <>
-                  <NavLink to="/jobs/new" className={mobileNavLinkClass} onClick={() => setMobileMenuOpen(false)}>
+                  <Link to="/jobs/new" className={mobileNavLinkClass(isPostJobActive)} onClick={() => setMobileMenuOpen(false)}>
                     Post a Job
-                  </NavLink>
-                  <NavLink to="/dashboard/my-jobs" className={mobileNavLinkClass} onClick={() => setMobileMenuOpen(false)}>
+                  </Link>
+                  <Link to="/dashboard/my-jobs" className={mobileNavLinkClass(isMyJobsActive)} onClick={() => setMobileMenuOpen(false)}>
                     My Jobs
-                  </NavLink>
-                  <NavLink to="/dashboard/credits" className={mobileNavLinkClass} onClick={() => setMobileMenuOpen(false)}>
+                  </Link>
+                  <Link to="/dashboard/credits" className={mobileNavLinkClass(isPackagesActive)} onClick={() => setMobileMenuOpen(false)}>
                     Packages & Plans
-                  </NavLink>
+                  </Link>
                 </>
               )}
 
               {user && role === "admin" && (
-                <NavLink to="/admin" className={mobileNavLinkClass} onClick={() => setMobileMenuOpen(false)}>
+                <Link to="/admin" className={mobileNavLinkClass(isAdminActive)} onClick={() => setMobileMenuOpen(false)}>
                   Admin Panel
-                </NavLink>
+                </Link>
               )}
 
               {user && role !== "admin" && (
-                <NavLink to="/dashboard" className={mobileNavLinkClass} onClick={() => setMobileMenuOpen(false)}>
+                <Link to="/dashboard" className={mobileNavLinkClass(isDashboardActive)} onClick={() => setMobileMenuOpen(false)}>
                   Dashboard
-                </NavLink>
+                </Link>
               )}
             </div>
 
