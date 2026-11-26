@@ -1,6 +1,7 @@
 export const SUBSCRIPTION_PLANS = [
   {
     id: "monthly",
+    key: "monthly",
     name: "Monthly Package",
     tagline: "Ideal for urgent single-role or small-team hiring needs",
     price: 2499,
@@ -21,6 +22,7 @@ export const SUBSCRIPTION_PLANS = [
   },
   {
     id: "quarterly",
+    key: "quarterly",
     name: "3-Month Package",
     tagline: "Great for growing companies with consistent hiring pipelines",
     price: 7499,
@@ -41,6 +43,7 @@ export const SUBSCRIPTION_PLANS = [
   },
   {
     id: "half_yearly",
+    key: "half_yearly",
     name: "6-Month Package",
     tagline: "High volume candidate sourcing with 365 days validity",
     price: 19999,
@@ -61,6 +64,7 @@ export const SUBSCRIPTION_PLANS = [
   },
   {
     id: "yearly",
+    key: "yearly",
     name: "Yearly Package",
     tagline: "Enterprise recruitment powerhouse across multiple cities",
     price: 100000,

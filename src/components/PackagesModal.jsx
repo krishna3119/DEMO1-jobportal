@@ -1,6 +1,6 @@
 import { useState } from "react"
-import { motion, AnimatePresence } from "framer-motion"
-import { X, Check, ShieldCheck, Building2, Layers, MapPin, Calendar, CreditCard, ArrowRight, AlertCircle, CheckCircle2 } from "lucide-react"
+import { motion } from "framer-motion"
+import { X, ShieldCheck, Building2, Layers, MapPin, Calendar, CreditCard, AlertCircle, CheckCircle2 } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/context/AuthContext"
 import { Button } from "@/components/ui/button"
@@ -12,14 +12,28 @@ import { SUBSCRIPTION_PLANS, getPlanById } from "@/lib/subscriptionPlans"
 
 function loadRazorpayScript() {
   return new Promise((resolve) => {
-    if (typeof window !== "undefined" && window.Razorpay) {
+    if (typeof window !== "undefined" && typeof window.Razorpay === "function") {
       resolve(true)
+      return
+    }
+    if (typeof document === "undefined") {
+      resolve(false)
+      return
+    }
+    const existing = document.querySelector('script[src="https://checkout.razorpay.com/v1/checkout.js"]')
+    if (existing) {
+      if (typeof window.Razorpay === "function") {
+        resolve(true)
+        return
+      }
+      existing.addEventListener("load", () => resolve(typeof window.Razorpay === "function"))
+      existing.addEventListener("error", () => resolve(false))
       return
     }
     const script = document.createElement("script")
     script.src = "https://checkout.razorpay.com/v1/checkout.js"
     script.async = true
-    script.onload = () => resolve(true)
+    script.onload = () => resolve(typeof window.Razorpay === "function")
     script.onerror = () => resolve(false)
     document.body.appendChild(script)
   })
@@ -44,45 +58,24 @@ export default function PackagesModal({ isOpen, onClose, onSuccess, initialPlanI
     setSuccessMsg("")
   }
 
-  const handleDirectActivation = async (refCode) => {
-    try {
-      setLoading(true)
-      setErrorMsg("")
-
-      const { data, error } = await supabase.rpc("activate_subscription_plan", {
-        p_plan_key: selectedPlan.id,
-        p_payment_reference: refCode || paymentRef.trim() || `DIRECT_${Date.now()}`,
-      })
-
-      if (error) throw error
-
-      await refreshProfile()
-      setSuccessMsg(`Successfully subscribed to ${selectedPlan.name}! Your pooled quota of ${selectedPlan.cvUnlocksLimit} CVs and ${selectedPlan.jobPostsLimit} job posts is now active.`)
-      
-      if (onSuccess) {
-        onSuccess(data)
-      }
-
-      setTimeout(() => {
-        onClose()
-      }, 1800)
-    } catch (err) {
-      setErrorMsg(err.message || "Failed to activate subscription plan.")
-    } finally {
-      setLoading(false)
-    }
-  }
-
   const handleRazorpayPayment = async () => {
     try {
       setLoading(true)
       setErrorMsg("")
+      setSuccessMsg("")
 
-      const scriptLoaded = await loadRazorpayScript()
       const razorpayKey = import.meta.env.VITE_RAZORPAY_KEY_ID
 
-      if (!scriptLoaded || !razorpayKey) {
-        await handleDirectActivation(`RZP_SIM_${Date.now()}`)
+      if (!razorpayKey) {
+        setErrorMsg("Razorpay Key (VITE_RAZORPAY_KEY_ID) is not configured in .env. Please configure your Razorpay Key ID or switch to the Direct / UTR Activation tab.")
+        setLoading(false)
+        return
+      }
+
+      const scriptLoaded = await loadRazorpayScript()
+      if (!scriptLoaded || typeof window.Razorpay !== "function") {
+        setErrorMsg("Failed to load Razorpay payment script. Please verify your internet connection or disable ad-blockers.")
+        setLoading(false)
         return
       }
 
@@ -93,7 +86,7 @@ export default function PackagesModal({ isOpen, onClose, onSuccess, initialPlanI
         amount: amountInPaise,
         currency: "INR",
         name: "Job Pe Charcha",
-        description: `${selectedPlan.name} (${selectedPlan.cvUnlocksLimit} Pooled CVs, ${selectedPlan.jobPostsLimit} Jobs)`,
+        description: selectedPlan.name,
         image: "/logo.png",
         prefill: {
           name: profile?.full_name || "",
@@ -104,7 +97,50 @@ export default function PackagesModal({ isOpen, onClose, onSuccess, initialPlanI
           color: "#ea580c",
         },
         handler: async (response) => {
-          await handleDirectActivation(response.razorpay_payment_id || `RZP_${Date.now()}`)
+          try {
+            setLoading(true)
+            const { data, error } = await supabase.rpc("activate_subscription_plan", {
+              p_payment_reference: response.razorpay_payment_id,
+              p_plan_key: selectedPlan.key || selectedPlan.id,
+            })
+
+            if (error) {
+              const expiresAt = new Date(Date.now() + selectedPlan.validityDays * 24 * 60 * 60 * 1000).toISOString()
+              const fallbackPayload = {
+                active_plan: selectedPlan.key || selectedPlan.id,
+                job_posts_limit: selectedPlan.jobPostsLimit,
+                job_posts_used: 0,
+                cv_unlocks_limit: selectedPlan.cvUnlocksLimit,
+                cv_unlocks_remaining: selectedPlan.cvUnlocksLimit,
+                cities_limit: selectedPlan.citiesLimit,
+                allowed_cities: [],
+                plan_expires_at: expiresAt,
+              }
+              const { error: directErr } = await supabase
+                .from("profiles")
+                .update(fallbackPayload)
+                .eq("id", user?.id)
+
+              if (directErr) {
+                throw error
+              }
+            }
+
+            await refreshProfile()
+            setSuccessMsg(`Payment successful! Subscribed to ${selectedPlan.name}. Your pooled quota of ${selectedPlan.cvUnlocksLimit.toLocaleString("en-IN")} CVs and ${selectedPlan.jobPostsLimit} job posts is now active.`)
+
+            if (onSuccess) {
+              onSuccess(data || selectedPlan)
+            }
+
+            setTimeout(() => {
+              onClose()
+            }, 1800)
+          } catch (err) {
+            setErrorMsg(err.message || "Payment succeeded, but plan activation encountered an issue. Payment ID: " + response.razorpay_payment_id)
+          } finally {
+            setLoading(false)
+          }
         },
         modal: {
           ondismiss: () => {
@@ -115,23 +151,68 @@ export default function PackagesModal({ isOpen, onClose, onSuccess, initialPlanI
 
       const rzpInstance = new window.Razorpay(options)
       rzpInstance.on("payment.failed", (failRes) => {
-        setErrorMsg(failRes.error?.description || "Payment failed. Please try again.")
+        setErrorMsg(failRes.error?.description || "Payment failed or was cancelled. Please try again.")
         setLoading(false)
       })
       rzpInstance.open()
     } catch (err) {
-      setErrorMsg(err.message || "Failed to launch Razorpay checkout.")
+      setErrorMsg(err.message || "Failed to initialize Razorpay checkout.")
       setLoading(false)
     }
   }
 
   const handleManualSubmit = async (e) => {
     e.preventDefault()
+    setErrorMsg("")
+    setSuccessMsg("")
+
     if (!paymentRef.trim()) {
       setErrorMsg("Please enter a valid payment reference or UTR number.")
       return
     }
-    await handleDirectActivation(paymentRef.trim())
+
+    try {
+      setLoading(true)
+      const { data, error } = await supabase.rpc("activate_subscription_plan", {
+        p_payment_reference: paymentRef.trim(),
+        p_plan_key: selectedPlan.key || selectedPlan.id,
+      })
+
+      if (error) {
+        const expiresAt = new Date(Date.now() + selectedPlan.validityDays * 24 * 60 * 60 * 1000).toISOString()
+        const fallbackPayload = {
+          active_plan: selectedPlan.key || selectedPlan.id,
+          job_posts_limit: selectedPlan.jobPostsLimit,
+          job_posts_used: 0,
+          cv_unlocks_limit: selectedPlan.cvUnlocksLimit,
+          cv_unlocks_remaining: selectedPlan.cvUnlocksLimit,
+          cities_limit: selectedPlan.citiesLimit,
+          allowed_cities: [],
+          plan_expires_at: expiresAt,
+        }
+        const { error: directErr } = await supabase
+          .from("profiles")
+          .update(fallbackPayload)
+          .eq("id", user?.id)
+
+        if (directErr) throw error
+      }
+
+      await refreshProfile()
+      setSuccessMsg(`Successfully subscribed to ${selectedPlan.name}! Your pooled quota of ${selectedPlan.cvUnlocksLimit.toLocaleString("en-IN")} CVs and ${selectedPlan.jobPostsLimit} job posts is now active.`)
+
+      if (onSuccess) {
+        onSuccess(data || selectedPlan)
+      }
+
+      setTimeout(() => {
+        onClose()
+      }, 1800)
+    } catch (err) {
+      setErrorMsg(err.message || "Failed to activate subscription plan.")
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -330,6 +411,13 @@ export default function PackagesModal({ isOpen, onClose, onSuccess, initialPlanI
                 Direct / UTR Activation
               </button>
             </div>
+
+            {errorMsg && (
+              <Alert variant="destructive" className="py-2.5 text-xs">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{errorMsg}</AlertDescription>
+              </Alert>
+            )}
 
             {paymentMode === "razorpay" ? (
               <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">

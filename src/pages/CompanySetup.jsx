@@ -1,6 +1,6 @@
-import { useState } from "react"
+import { useState, useRef } from "react"
 import { useNavigate, Link } from "react-router-dom"
-import { Building2, Globe, MapPin, Image, ArrowRight, Shield } from "lucide-react"
+import { Building2, Globe, MapPin, ArrowRight, Shield, UploadCloud, X } from "lucide-react"
 import { useAuth } from "@/context/AuthContext"
 import { supabase } from "@/lib/supabase"
 import { Button } from "@/components/ui/button"
@@ -14,12 +14,15 @@ import PageTransition from "@/components/PageTransition"
 export default function CompanySetup() {
   const { profile } = useAuth()
   const navigate = useNavigate()
+  const fileInputRef = useRef(null)
 
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
   const [website, setWebsite] = useState("")
   const [location, setLocation] = useState("")
-  const [logoUrl, setLogoUrl] = useState("")
+  const [logoFile, setLogoFile] = useState(null)
+  const [logoPreview, setLogoPreview] = useState(null)
+  const [isDragging, setIsDragging] = useState(false)
   const [errorMsg, setErrorMsg] = useState("")
   const [loading, setLoading] = useState(false)
 
@@ -48,6 +51,60 @@ export default function CompanySetup() {
     )
   }
 
+  const handleFileSelect = (file) => {
+    setErrorMsg("")
+    if (!file) return
+
+    const validTypes = ["image/png", "image/jpeg", "image/jpg", "image/webp"]
+    if (!validTypes.includes(file.type)) {
+      setErrorMsg("Please select a valid image file (PNG, JPG, or WEBP).")
+      return
+    }
+
+    const maxSize = 2 * 1024 * 1024
+    if (file.size > maxSize) {
+      setErrorMsg("Logo image size must be 2MB or less.")
+      return
+    }
+
+    if (logoPreview) {
+      URL.revokeObjectURL(logoPreview)
+    }
+
+    setLogoFile(file)
+    setLogoPreview(URL.createObjectURL(file))
+  }
+
+  const handleRemoveLogo = () => {
+    if (logoPreview) {
+      URL.revokeObjectURL(logoPreview)
+    }
+    setLogoFile(null)
+    setLogoPreview(null)
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ""
+    }
+  }
+
+  const handleDragOver = (e) => {
+    e.preventDefault()
+    setIsDragging(true)
+  }
+
+  const handleDragLeave = (e) => {
+    e.preventDefault()
+    setIsDragging(false)
+  }
+
+  const handleDrop = (e) => {
+    e.preventDefault()
+    setIsDragging(false)
+    const file = e.dataTransfer.files?.[0]
+    if (file) {
+      handleFileSelect(file)
+    }
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setErrorMsg("")
@@ -63,12 +120,38 @@ export default function CompanySetup() {
 
     setLoading(true)
     try {
+      let uploadedLogoUrl = null
+
+      if (logoFile) {
+        const fileExt = logoFile.name.split(".").pop()?.toLowerCase() || "png"
+        const cleanExt = ["png", "jpg", "jpeg", "webp"].includes(fileExt) ? fileExt : "png"
+        const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${cleanExt}`
+        const filePath = `${profile?.id || "company"}/${fileName}`
+
+        const { error: uploadError } = await supabase.storage
+          .from("company-logos")
+          .upload(filePath, logoFile, {
+            cacheControl: "3600",
+            upsert: true,
+          })
+
+        if (uploadError) {
+          throw new Error("Failed to upload company logo: " + uploadError.message)
+        }
+
+        const { data: publicUrlData } = supabase.storage
+          .from("company-logos")
+          .getPublicUrl(filePath)
+
+        uploadedLogoUrl = publicUrlData?.publicUrl || null
+      }
+
       const { error } = await supabase.rpc("setup_company", {
         company_name: name.trim(),
         company_desc: description.trim(),
         company_website: website.trim(),
         company_location: location.trim(),
-        company_logo_url: logoUrl.trim() || null,
+        company_logo_url: uploadedLogoUrl,
       })
 
       if (error) throw error
@@ -146,18 +229,86 @@ export default function CompanySetup() {
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="comp-logo" className="text-xs font-semibold">Logo Image URL (Optional)</Label>
-              <div className="relative">
-                <Image className="absolute left-3 top-3 h-4 w-4 text-muted-foreground pointer-events-none" />
-                <Input
-                  id="comp-logo"
-                  type="url"
-                  placeholder="https://example.com/logo.png"
-                  className="pl-9 h-10 text-sm"
-                  value={logoUrl}
-                  onChange={(e) => setLogoUrl(e.target.value)}
-                />
-              </div>
+              <Label className="text-xs font-semibold">Company Logo (Optional)</Label>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0]
+                  if (file) handleFileSelect(file)
+                }}
+              />
+
+              {logoPreview ? (
+                <div className="flex items-center gap-4 p-3 rounded-xl border bg-muted/20">
+                  <div className="relative h-16 w-16 rounded-xl border bg-card p-1 flex items-center justify-center overflow-hidden shrink-0 shadow-sm">
+                    <img
+                      src={logoPreview}
+                      alt="Company Logo Preview"
+                      className="h-full w-full object-contain"
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0 space-y-1">
+                    <p className="text-xs font-medium text-foreground truncate">
+                      {logoFile?.name || "company-logo"}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {logoFile ? `${(logoFile.size / 1024).toFixed(1)} KB` : "Logo ready"}
+                    </p>
+                    <div className="flex items-center gap-2 pt-0.5">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-[11px] px-2.5 font-medium"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={loading}
+                      >
+                        Change Logo
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-[11px] px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+                        onClick={handleRemoveLogo}
+                        disabled={loading}
+                      >
+                        <X className="h-3.5 w-3.5 mr-1" />
+                        Remove
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                  onClick={() => fileInputRef.current?.click()}
+                  className={`border-2 border-dashed rounded-xl p-5 text-center cursor-pointer transition-colors ${
+                    isDragging
+                      ? "border-primary bg-primary/5"
+                      : "border-border hover:border-primary/50 bg-muted/10 hover:bg-muted/20"
+                  }`}
+                >
+                  <div className="flex flex-col items-center justify-center gap-1.5">
+                    <div className="h-9 w-9 rounded-full bg-primary/10 text-primary flex items-center justify-center">
+                      <UploadCloud className="h-4 w-4" />
+                    </div>
+                    <div className="space-y-0.5">
+                      <p className="text-xs font-semibold text-foreground">
+                        Click to upload or drag & drop logo
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">
+                        PNG, JPG, or WEBP (Max 2MB)
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="space-y-1.5">
