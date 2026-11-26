@@ -21,7 +21,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Skeleton } from "@/components/ui/skeleton"
 import { AnimatedCounter } from "@/components/ui/animated-counter"
 import PageTransition from "@/components/PageTransition"
-import PackagesModal from "@/components/PackagesModal"
 import { isPlanActive, getPlanDisplayName, formatExpiry } from "@/lib/subscriptionPlans"
 
 export default function Dashboard() {
@@ -32,7 +31,6 @@ export default function Dashboard() {
   const [companyName, setCompanyName] = useState("")
   const [transactions, setTransactions] = useState([])
   const [loadingTransactions, setLoadingTransactions] = useState(false)
-  const [showPackagesModal, setShowPackagesModal] = useState(false)
 
   const [metrics, setMetrics] = useState({
     total: 0,
@@ -150,14 +148,15 @@ export default function Dashboard() {
                 <Layers className="h-3.5 w-3.5" />
                 <span>{planActive ? `${planName} (${cvsRemaining} CVs remaining)` : "No Active Package"}</span>
               </div>
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-8 text-xs font-semibold border-primary/40 text-primary hover:bg-primary/10"
-                onClick={() => setShowPackagesModal(true)}
-              >
-                Upgrade / Buy Package
-              </Button>
+              <Link to="/packages">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 text-xs font-semibold border-primary/40 text-primary hover:bg-primary/10"
+                >
+                  Upgrade / Buy Package
+                </Button>
+              </Link>
             </div>
           )}
           <span className="text-xs text-muted-foreground font-medium">Account Role:</span>
@@ -225,12 +224,13 @@ export default function Dashboard() {
               </div>
 
               <div>
-                <Button
-                  onClick={() => setShowPackagesModal(true)}
-                  className="w-full lg:w-auto h-10 px-5 font-semibold gap-1.5 shadow-sm"
-                >
-                  Upgrade / Buy Package
-                </Button>
+                <Link to="/packages">
+                  <Button
+                    className="w-full lg:w-auto h-10 px-5 font-semibold gap-1.5 shadow-sm"
+                  >
+                    Upgrade / Buy Package
+                  </Button>
+                </Link>
               </div>
             </div>
           </CardContent>
@@ -359,13 +359,14 @@ export default function Dashboard() {
                   All candidate resumes unlocked deduct 1 CV from your single pooled quota. Candidates apply 100% free.
                 </p>
                 <div className="pt-1">
-                  <Button
-                    size="sm"
-                    onClick={() => setShowPackagesModal(true)}
-                    className="w-full text-xs h-8 font-semibold shadow-sm"
-                  >
-                    Upgrade / Buy Package
-                  </Button>
+                  <Link to="/packages" className="block">
+                    <Button
+                      size="sm"
+                      className="w-full text-xs h-8 font-semibold shadow-sm"
+                    >
+                      Upgrade / Buy Package
+                    </Button>
+                  </Link>
                 </div>
               </CardContent>
             </Card>
@@ -534,11 +535,6 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       )}
-
-      <PackagesModal
-        isOpen={showPackagesModal}
-        onClose={() => setShowPackagesModal(false)}
-      />
     </PageTransition>
   )
 }

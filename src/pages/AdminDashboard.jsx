@@ -13,7 +13,9 @@ import {
   ExternalLink,
   ShieldCheck,
   CreditCard,
-  Eye
+  Eye,
+  IndianRupee,
+  Receipt
 } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { Button } from "@/components/ui/button"
@@ -38,7 +40,13 @@ export default function AdminDashboard() {
     jobs: 0,
     applications: 0,
     credits: 0,
+    subscriptionRevenue: 0,
   })
+
+  const [subscriptionPayments, setSubscriptionPayments] = useState([])
+  const [loadingPayments, setLoadingPayments] = useState(false)
+  const [paymentSearch, setPaymentSearch] = useState("")
+  const [paymentMethodFilter, setPaymentMethodFilter] = useState("all")
 
   const [companies, setCompanies] = useState([])
   const [verifyingId, setVerifyingId] = useState(null)
@@ -75,15 +83,21 @@ export default function AdminDashboard() {
         { count: jobCount },
         { count: appCount },
         { data: creditRows },
+        { data: paymentRows },
       ] = await Promise.all([
         supabase.from("profiles").select("*", { count: "exact", head: true }),
         supabase.from("companies").select("*", { count: "exact", head: true }),
         supabase.from("jobs").select("*", { count: "exact", head: true }),
         supabase.from("applications").select("*", { count: "exact", head: true }),
         supabase.from("company_credits").select("balance"),
+        supabase.from("subscription_payments").select("total_amount, status"),
       ])
 
       const totalCreditsSum = (creditRows || []).reduce((acc, row) => acc + (row.balance || 0), 0)
+      const totalRevenueSum = (paymentRows || []).reduce(
+        (acc, row) => acc + (Number(row.total_amount) || 0),
+        0
+      )
 
       setMetrics({
         users: userCount || 0,
@@ -91,9 +105,29 @@ export default function AdminDashboard() {
         jobs: jobCount || 0,
         applications: appCount || 0,
         credits: totalCreditsSum,
+        subscriptionRevenue: totalRevenueSum,
       })
     } catch (err) {
       console.error("Failed to load platform metrics:", err.message)
+    }
+  }, [])
+
+  const loadSubscriptionPayments = useCallback(async () => {
+    try {
+      setLoadingPayments(true)
+      const { data, error } = await supabase
+        .from("subscription_payments")
+        .select("*")
+        .order("created_at", { ascending: false })
+      if (error) {
+        console.error("Failed to load subscription payments:", error.message)
+      } else {
+        setSubscriptionPayments(data || [])
+      }
+    } catch (err) {
+      console.error("Error loading subscription payments:", err.message)
+    } finally {
+      setLoadingPayments(false)
     }
   }, [])
 
@@ -241,7 +275,8 @@ export default function AdminDashboard() {
     loadCompanies()
     loadUsers()
     loadCreditRequests()
-  }, [loadOverviewMetrics, loadCompanies, loadUsers, loadCreditRequests])
+    loadSubscriptionPayments()
+  }, [loadOverviewMetrics, loadCompanies, loadUsers, loadCreditRequests, loadSubscriptionPayments])
 
   useEffect(() => {
     if (activeTab === "ledger") {
@@ -252,11 +287,14 @@ export default function AdminDashboard() {
       loadCompanies()
     } else if (activeTab === "requests") {
       loadCreditRequests()
+    } else if (activeTab === "payments") {
+      loadSubscriptionPayments()
     } else if (activeTab === "overview") {
       loadOverviewMetrics()
       loadCreditRequests()
+      loadSubscriptionPayments()
     }
-  }, [activeTab, loadLedger, loadUsers, loadCompanies, loadOverviewMetrics, loadCreditRequests])
+  }, [activeTab, loadLedger, loadUsers, loadCompanies, loadOverviewMetrics, loadCreditRequests, loadSubscriptionPayments])
 
   useEffect(() => {
     const channel = supabase
@@ -448,6 +486,22 @@ export default function AdminDashboard() {
     return matchesRole && matchesSearch
   })
 
+  const filteredPayments = subscriptionPayments.filter((p) => {
+    const term = paymentSearch.toLowerCase().trim()
+    const matchesSearch =
+      term === "" ||
+      (p.recruiter_name && p.recruiter_name.toLowerCase().includes(term)) ||
+      (p.recruiter_email && p.recruiter_email.toLowerCase().includes(term)) ||
+      (p.transaction_id && p.transaction_id.toLowerCase().includes(term)) ||
+      (p.plan_name && p.plan_name.toLowerCase().includes(term))
+
+    const matchesMethod =
+      paymentMethodFilter === "all" ||
+      (p.payment_method && p.payment_method.toLowerCase().includes(paymentMethodFilter))
+
+    return matchesSearch && matchesMethod
+  })
+
   const USERS_PAGE_SIZE = 25
   const totalUserPages = Math.max(1, Math.ceil(filteredUsers.length / USERS_PAGE_SIZE))
   const paginatedUsers = filteredUsers.slice((userPage - 1) * USERS_PAGE_SIZE, userPage * USERS_PAGE_SIZE)
@@ -500,9 +554,11 @@ export default function AdminDashboard() {
             loadOverviewMetrics()
             loadCompanies()
             loadCreditRequests()
+            loadSubscriptionPayments()
             if (activeTab === "ledger") loadLedger()
             if (activeTab === "users") loadUsers()
             if (activeTab === "requests") loadCreditRequests()
+            if (activeTab === "payments") loadSubscriptionPayments()
           }}
           className="h-8 text-xs gap-1.5 self-start sm:self-auto font-medium"
         >
@@ -537,6 +593,7 @@ export default function AdminDashboard() {
       <div className="flex overflow-x-auto border-b gap-1 pb-px scrollbar-none">
         {[
           { id: "overview", label: "Platform Overview", icon: ShieldCheck },
+          { id: "payments", label: `Subscription Payments (${subscriptionPayments.length})`, icon: Receipt },
           { id: "verification", label: `Verifications (${companies.filter((c) => c.verification_status === "pending").length})`, icon: Building2 },
           { id: "requests", label: `Credit Requests (${creditRequests.filter((r) => r.status === "pending").length})`, icon: Coins },
           { id: "credits", label: "Credit Top-Up", icon: CreditCard },
@@ -567,7 +624,7 @@ export default function AdminDashboard() {
 
       {activeTab === "overview" && (
         <div className="space-y-6">
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
             <Card className="p-4 shadow-sm space-y-1">
               <div className="flex items-center justify-between text-muted-foreground">
                 <span className="text-[10px] font-bold uppercase tracking-wider">Total Users</span>
@@ -623,6 +680,19 @@ export default function AdminDashboard() {
                 <AnimatedCounter value={metrics.credits} />
               </p>
               <p className="text-[10px] text-muted-foreground">Total platform balance</p>
+            </Card>
+
+            <Card className="p-4 shadow-sm space-y-1 col-span-2 sm:col-span-1">
+              <div className="flex items-center justify-between text-muted-foreground">
+                <span className="text-[10px] font-bold uppercase tracking-wider">Subscription Revenue</span>
+                <IndianRupee className="h-4 w-4 text-emerald-600" />
+              </div>
+              <p className="text-2xl font-heading font-extrabold text-foreground">
+                ₹<AnimatedCounter value={metrics.subscriptionRevenue} />
+              </p>
+              <p className="text-[10px] text-muted-foreground">
+                {subscriptionPayments.length} paid transaction{subscriptionPayments.length === 1 ? "" : "s"}
+              </p>
             </Card>
           </div>
 
@@ -1525,6 +1595,137 @@ export default function AdminDashboard() {
                   )}
                 </div>
               </>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {activeTab === "payments" && (
+        <Card className="shadow-sm">
+          <CardHeader className="pb-3 border-b">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <CardTitle className="text-base font-heading font-bold flex items-center gap-2">
+                  <Receipt className="h-5 w-5 text-primary" />
+                  Subscription Payments
+                </CardTitle>
+                <CardDescription className="text-xs mt-1">
+                  All subscription plan purchases, simulated checkout payments, and transaction history.
+                </CardDescription>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="text-xs font-semibold px-2.5 py-1">
+                  Total: {subscriptionPayments.length}
+                </Badge>
+                <Badge className="bg-emerald-600/15 text-emerald-700 border-emerald-600/30 text-xs font-semibold px-2.5 py-1">
+                  ₹{subscriptionPayments.reduce((sum, p) => sum + (Number(p.total_amount) || 0), 0).toLocaleString("en-IN")} Total Revenue
+                </Badge>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-center gap-3 pt-3">
+              <div className="relative w-full sm:w-72">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                  value={paymentSearch}
+                  onChange={(e) => setPaymentSearch(e.target.value)}
+                  placeholder="Search by recruiter, email, TXN ID..."
+                  className="pl-8 h-8 text-xs"
+                />
+              </div>
+              <div className="flex items-center gap-1.5 w-full sm:w-auto">
+                {["all", "upi", "card", "netbanking"].map((method) => (
+                  <button
+                    key={method}
+                    onClick={() => setPaymentMethodFilter(method)}
+                    className={`px-2.5 py-1 text-xs rounded-lg font-medium transition-colors ${
+                      paymentMethodFilter === method
+                        ? "bg-primary text-primary-foreground font-semibold"
+                        : "bg-muted text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {method.toUpperCase()}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="p-0">
+            {loadingPayments ? (
+              <div className="p-6 space-y-3">
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <Skeleton key={i} className="h-10 w-full rounded-lg" />
+                ))}
+              </div>
+            ) : filteredPayments.length === 0 ? (
+              <div className="p-12 text-center text-muted-foreground text-xs space-y-2">
+                <Receipt className="h-8 w-8 mx-auto opacity-30" />
+                <p>No subscription payment records found.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs text-left">
+                  <thead className="bg-muted/40 text-muted-foreground font-semibold border-b">
+                    <tr>
+                      <th className="py-2.5 px-4">Date / Time</th>
+                      <th className="py-2.5 px-4">Recruiter</th>
+                      <th className="py-2.5 px-4">Package</th>
+                      <th className="py-2.5 px-4 text-right">Base Amount</th>
+                      <th className="py-2.5 px-4 text-right">GST (18%)</th>
+                      <th className="py-2.5 px-4 text-right">Total Paid</th>
+                      <th className="py-2.5 px-4">Method</th>
+                      <th className="py-2.5 px-4">Transaction ID</th>
+                      <th className="py-2.5 px-4 text-center">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {filteredPayments.map((p) => (
+                      <tr key={p.id} className="hover:bg-muted/20 transition-colors">
+                        <td className="py-3 px-4 text-muted-foreground whitespace-nowrap">
+                          {p.created_at
+                            ? new Date(p.created_at).toLocaleString("en-IN", {
+                                day: "2-digit",
+                                month: "short",
+                                year: "numeric",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })
+                            : "-"}
+                        </td>
+                        <td className="py-3 px-4">
+                          <p className="font-semibold text-foreground">{p.recruiter_name || "Recruiter"}</p>
+                          <p className="text-[11px] text-muted-foreground truncate max-w-[180px]">{p.recruiter_email || "-"}</p>
+                        </td>
+                        <td className="py-3 px-4">
+                          <Badge variant="outline" className="font-medium text-[11px]">
+                            {p.plan_name || p.plan_key}
+                          </Badge>
+                        </td>
+                        <td className="py-3 px-4 text-right font-medium text-foreground whitespace-nowrap">
+                          ₹{Number(p.base_amount || 0).toLocaleString("en-IN")}
+                        </td>
+                        <td className="py-3 px-4 text-right text-muted-foreground whitespace-nowrap">
+                          ₹{Number(p.gst_amount || 0).toLocaleString("en-IN")}
+                        </td>
+                        <td className="py-3 px-4 text-right font-bold text-foreground whitespace-nowrap">
+                          ₹{Number(p.total_amount || 0).toLocaleString("en-IN")}
+                        </td>
+                        <td className="py-3 px-4 uppercase text-[11px] font-semibold text-muted-foreground">
+                          {p.payment_method || "Sample"}
+                        </td>
+                        <td className="py-3 px-4 font-mono text-[11px] text-muted-foreground whitespace-nowrap select-all">
+                          {p.transaction_id || "-"}
+                        </td>
+                        <td className="py-3 px-4 text-center">
+                          <Badge className="bg-emerald-600/15 text-emerald-700 border-emerald-600/30 text-[10px] font-bold">
+                            {p.status || "success"}
+                          </Badge>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </CardContent>
         </Card>

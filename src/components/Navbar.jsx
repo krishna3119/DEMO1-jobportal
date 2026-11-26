@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import NotificationBell from "@/components/NotificationBell"
 import ErrorBoundary from "@/components/ErrorBoundary"
-import PackagesModal from "@/components/PackagesModal"
 import { isPlanActive, getPlanDisplayName, formatExpiry } from "@/lib/subscriptionPlans"
 
 export default function Navbar() {
@@ -16,7 +15,6 @@ export default function Navbar() {
   const location = useLocation()
   const shouldReduceMotion = useReducedMotion()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [showPackagesModal, setShowPackagesModal] = useState(false)
 
   const pathname = location.pathname
 
@@ -27,7 +25,7 @@ export default function Navbar() {
   const isSavedActive = pathname === "/saved" || pathname.startsWith("/saved/")
   const isPostJobActive = pathname === "/jobs/new" || pathname === "/jobs/post" || pathname.startsWith("/jobs/new/") || pathname.startsWith("/jobs/post/")
   const isMyJobsActive = pathname === "/dashboard/my-jobs" || pathname.startsWith("/dashboard/my-jobs/")
-  const isPackagesActive = pathname === "/dashboard/credits" || pathname.startsWith("/dashboard/credits/")
+  const isPackagesActive = pathname === "/packages" || pathname.startsWith("/packages") || pathname === "/dashboard/credits" || pathname.startsWith("/dashboard/credits/")
   const isAdminActive = pathname === "/admin" || pathname.startsWith("/admin/")
   const isDashboardActive = pathname === "/dashboard"
 
@@ -119,7 +117,7 @@ export default function Navbar() {
               <Link to="/dashboard/my-jobs" className={navLinkClass(isMyJobsActive)}>
                 My Jobs
               </Link>
-              <Link to="/dashboard/credits" className={navLinkClass(isPackagesActive)}>
+              <Link to="/packages" className={navLinkClass(isPackagesActive)}>
                 Packages
               </Link>
             </>
@@ -154,14 +152,15 @@ export default function Navbar() {
                     <Layers className="h-3.5 w-3.5" />
                     <span>{planActive ? `${planName} (${cvsRemaining} CVs)` : "No Active Plan"}</span>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-7 text-xs px-2.5 font-semibold border-primary/40 text-primary hover:bg-primary/10"
-                    onClick={() => setShowPackagesModal(true)}
-                  >
-                    Upgrade / Buy Package
-                  </Button>
+                  <Link to="/packages">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs px-2.5 font-semibold border-primary/40 text-primary hover:bg-primary/10"
+                    >
+                      Upgrade / Buy Package
+                    </Button>
+                  </Link>
                 </div>
               )}
               <ErrorBoundary compact fallback={<span className="text-xs text-muted-foreground p-1">🔔</span>}>
@@ -203,7 +202,7 @@ export default function Navbar() {
         <div className="flex md:hidden items-center space-x-2">
           {user && role === "recruiter" && (
             <button
-              onClick={() => setShowPackagesModal(true)}
+              onClick={() => navigate("/packages")}
               className={`flex items-center gap-1 px-2 py-0.5 rounded-full border text-[11px] font-semibold ${
                 planActive
                   ? "bg-primary/10 border-primary/30 text-primary"
@@ -287,7 +286,7 @@ export default function Navbar() {
                         className="w-full text-xs h-8 font-semibold"
                         onClick={() => {
                           setMobileMenuOpen(false)
-                          setShowPackagesModal(true)
+                          navigate("/packages")
                         }}
                       >
                         Upgrade / Buy Package
@@ -328,7 +327,7 @@ export default function Navbar() {
                   <Link to="/dashboard/my-jobs" className={mobileNavLinkClass(isMyJobsActive)} onClick={() => setMobileMenuOpen(false)}>
                     My Jobs
                   </Link>
-                  <Link to="/dashboard/credits" className={mobileNavLinkClass(isPackagesActive)} onClick={() => setMobileMenuOpen(false)}>
+                  <Link to="/packages" className={mobileNavLinkClass(isPackagesActive)} onClick={() => setMobileMenuOpen(false)}>
                     Packages & Plans
                   </Link>
                 </>
@@ -373,11 +372,6 @@ export default function Navbar() {
           </motion.div>
         )}
       </AnimatePresence>
-
-      <PackagesModal
-        isOpen={showPackagesModal}
-        onClose={() => setShowPackagesModal(false)}
-      />
     </header>
   )
 }

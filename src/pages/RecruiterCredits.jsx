@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react"
-import { Link } from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom"
 import { 
   Layers, 
   ShieldCheck, 
@@ -21,16 +21,15 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Skeleton } from "@/components/ui/skeleton"
 import { AnimatedCounter } from "@/components/ui/animated-counter"
 import PageTransition from "@/components/PageTransition"
-import PackagesModal from "@/components/PackagesModal"
 import { SUBSCRIPTION_PLANS, isPlanActive, getPlanDisplayName, formatExpiry } from "@/lib/subscriptionPlans"
 
 export default function RecruiterCredits() {
+  const navigate = useNavigate()
   const { user, profile, refreshProfile } = useAuth()
   const [loading, setLoading] = useState(true)
   const [transactions, setTransactions] = useState([])
   const [errorMsg, setErrorMsg] = useState("")
   const [successMsg, setSuccessMsg] = useState("")
-  const [showPackagesModal, setShowPackagesModal] = useState(false)
   const [selectedPlanId, setSelectedPlanId] = useState("monthly")
 
   const planActive = isPlanActive(profile)
@@ -70,7 +69,7 @@ export default function RecruiterCredits() {
 
   const handleOpenSubscribe = (planId) => {
     setSelectedPlanId(planId)
-    setShowPackagesModal(true)
+    navigate("/packages", { state: { selectedPlanId: planId } })
   }
 
   return (
@@ -356,17 +355,6 @@ export default function RecruiterCredits() {
           )}
         </CardContent>
       </Card>
-
-      <PackagesModal
-        isOpen={showPackagesModal}
-        onClose={() => setShowPackagesModal(false)}
-        initialPlanId={selectedPlanId}
-        onSuccess={() => {
-          refreshProfile()
-          loadData()
-          setSuccessMsg("Subscription package updated successfully!")
-        }}
-      />
     </PageTransition>
   )
 }

@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react"
-import { useParams, Link } from "react-router-dom"
+import { useParams, Link, useNavigate } from "react-router-dom"
 import { 
   Building2, 
   MapPin, 
@@ -32,11 +32,11 @@ import { Card } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Skeleton } from "@/components/ui/skeleton"
 import PageTransition from "@/components/PageTransition"
-import PackagesModal from "@/components/PackagesModal"
 import { isPlanActive, getPlanDisplayName } from "@/lib/subscriptionPlans"
 
 export default function JobApplicants() {
   const { id } = useParams()
+  const navigate = useNavigate()
   const { user, profile, refreshProfile } = useAuth()
   const shouldReduceMotion = useReducedMotion()
 
@@ -56,7 +56,6 @@ export default function JobApplicants() {
   const [unlockModalApp, setUnlockModalApp] = useState(null)
   const [unlockingApp, setUnlockingApp] = useState(false)
   const [unlockError, setUnlockError] = useState("")
-  const [showPackagesModal, setShowPackagesModal] = useState(false)
 
   const [expandedHistory, setExpandedHistory] = useState(new Set())
 
@@ -292,14 +291,15 @@ export default function JobApplicants() {
             <Layers className="h-3.5 w-3.5" />
             <span>{cvsRemaining} Pooled CVs Remaining</span>
           </div>
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-8 text-xs font-semibold border-primary/40 text-primary hover:bg-primary/10"
-            onClick={() => setShowPackagesModal(true)}
-          >
-            Buy / Upgrade Plan
-          </Button>
+          <Link to="/packages">
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 text-xs font-semibold border-primary/40 text-primary hover:bg-primary/10"
+            >
+              Buy / Upgrade Plan
+            </Button>
+          </Link>
           <Badge variant={job?.status === "open" ? "default" : "secondary"} className="text-xs">
             {job?.status === "open" ? "Active Listing" : job?.status || ""}
           </Badge>
@@ -743,7 +743,7 @@ export default function JobApplicants() {
                       className="h-7 text-xs bg-card hover:bg-muted text-foreground"
                       onClick={() => {
                         setUnlockModalApp(null)
-                        setShowPackagesModal(true)
+                        navigate("/packages")
                       }}
                     >
                       Upgrade / Renew Package →
@@ -775,7 +775,7 @@ export default function JobApplicants() {
                     className="text-xs h-9 font-semibold"
                     onClick={() => {
                       setUnlockModalApp(null)
-                      setShowPackagesModal(true)
+                      navigate("/packages")
                     }}
                   >
                     Buy Package
@@ -795,11 +795,6 @@ export default function JobApplicants() {
           </div>
         )}
       </AnimatePresence>
-
-      <PackagesModal
-        isOpen={showPackagesModal}
-        onClose={() => setShowPackagesModal(false)}
-      />
     </PageTransition>
   )
 }

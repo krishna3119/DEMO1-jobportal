@@ -12,7 +12,6 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
 import PageTransition from "@/components/PageTransition"
-import PackagesModal from "@/components/PackagesModal"
 import { isPlanActive, getPlanDisplayName, formatExpiry } from "@/lib/subscriptionPlans"
 
 export default function PostJob() {
@@ -35,7 +34,6 @@ export default function PostJob() {
   const [errorMsg, setErrorMsg] = useState("")
   const [noticeMsg, setNoticeMsg] = useState("")
   const [loading, setLoading] = useState(false)
-  const [showPackagesModal, setShowPackagesModal] = useState(false)
 
   const planActive = isPlanActive(profile)
   const planName = getPlanDisplayName(profile?.active_plan)
@@ -234,15 +232,16 @@ export default function PostJob() {
                   <span className="text-[10px] text-muted-foreground">{expiryText}</span>
                 </div>
               </div>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="h-7 text-xs px-2.5 font-semibold self-start sm:self-auto border-primary/40 text-primary hover:bg-primary/10"
-                onClick={() => setShowPackagesModal(true)}
-              >
-                Upgrade / Renew Plan
-              </Button>
+              <Link to="/packages">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs px-2.5 font-semibold self-start sm:self-auto border-primary/40 text-primary hover:bg-primary/10"
+                >
+                  Upgrade / Renew Plan
+                </Button>
+              </Link>
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
@@ -300,14 +299,15 @@ export default function PostJob() {
                   ← Back to Dashboard
                 </Button>
               </Link>
-              <Button
-                variant="default"
-                size="sm"
-                className="h-8 text-xs font-semibold"
-                onClick={() => setShowPackagesModal(true)}
-              >
-                Packages
-              </Button>
+              <Link to="/packages">
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="h-8 text-xs font-semibold"
+                >
+                  Packages
+                </Button>
+              </Link>
             </div>
           </AlertDescription>
         </Alert>
@@ -332,13 +332,14 @@ export default function PostJob() {
                 Back to Dashboard
               </Button>
             </Link>
-            <Button
-              size="sm"
-              className="h-9 px-4 font-semibold"
-              onClick={() => setShowPackagesModal(true)}
-            >
-              Subscription Packages
-            </Button>
+            <Link to="/packages">
+              <Button
+                size="sm"
+                className="h-9 px-4 font-semibold"
+              >
+                Subscription Packages
+              </Button>
+            </Link>
           </div>
         </Card>
       ) : (
@@ -518,13 +519,14 @@ export default function PostJob() {
                   </Button>
                 </Link>
                 {isSubscriptionBlocked ? (
-                  <Button
-                    type="button"
-                    onClick={() => setShowPackagesModal(true)}
-                    className="w-full sm:w-auto text-xs font-semibold"
-                  >
-                    {!planActive ? "Subscribe to Post Jobs" : "Upgrade Package to Post"}
-                  </Button>
+                  <Link to="/packages" className="w-full sm:w-auto">
+                    <Button
+                      type="button"
+                      className="w-full sm:w-auto text-xs font-semibold"
+                    >
+                      {!planActive ? "Subscribe to Post Jobs" : "Upgrade Package to Post"}
+                    </Button>
+                  </Link>
                 ) : (
                   <Button
                     type="submit"
@@ -539,11 +541,6 @@ export default function PostJob() {
           </CardContent>
         </Card>
       )}
-
-      <PackagesModal
-        isOpen={showPackagesModal}
-        onClose={() => setShowPackagesModal(false)}
-      />
     </PageTransition>
   )
 }
