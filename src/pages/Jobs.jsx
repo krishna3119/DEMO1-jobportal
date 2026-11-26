@@ -33,7 +33,6 @@ export default function Jobs() {
   const [savingId, setSavingId] = useState(null)
   const [showMobileFilters, setShowMobileFilters] = useState(false)
 
-  // Search & Filters
   const [keyword, setKeyword] = useState("")
   const [selectedLocation, setSelectedLocation] = useState("")
   const [selectedJobType, setSelectedJobType] = useState("")
@@ -41,12 +40,10 @@ export default function Jobs() {
   const [selectedExp, setSelectedExp] = useState("")
   const [minSalary, setMinSalary] = useState("")
 
-  // Pagination (10 per page)
   const [page, setPage] = useState(1)
   const [totalCount, setTotalCount] = useState(0)
   const PAGE_SIZE = 10
 
-  // Count active filters
   const activeFilterCount = [
     keyword,
     selectedLocation,
@@ -56,20 +53,17 @@ export default function Jobs() {
     minSalary,
   ].filter(Boolean).length
 
-  // Load available companies for filter dropdown
   useEffect(() => {
     async function loadCompanies() {
       const { data } = await supabase
         .from("companies")
         .select("id, name")
-        .eq("verification_status", "approved")
         .order("name")
       if (data) setCompanies(data)
     }
     loadCompanies()
   }, [])
 
-  // Load user's saved job IDs if logged in candidate
   useEffect(() => {
     async function loadSavedJobs() {
       if (!user?.id || profile?.role !== "candidate") return
@@ -85,7 +79,6 @@ export default function Jobs() {
     loadSavedJobs()
   }, [user, profile])
 
-  // Fetch jobs with filters and pagination
   const fetchJobs = useCallback(async () => {
     setLoading(true)
     try {
@@ -94,42 +87,35 @@ export default function Jobs() {
         .select(
           `
           *,
-          company:companies!inner(id, name, location, logo_url, verification_status)
+          company:companies(id, name, location, logo_url, verification_status)
         `,
           { count: "exact" }
         )
         .eq("status", "open")
-        .eq("company.verification_status", "approved")
         .order("created_at", { ascending: false })
 
-      // Keyword search in title or description
       if (keyword.trim()) {
         query = query.or(
           `title.ilike.%${keyword.trim()}%,description.ilike.%${keyword.trim()}%`
         )
       }
 
-      // Location filter
       if (selectedLocation.trim()) {
         query = query.ilike("location", `%${selectedLocation.trim()}%`)
       }
 
-      // Job Type filter
       if (selectedJobType) {
         query = query.eq("job_type", selectedJobType)
       }
 
-      // Company filter
       if (selectedCompany) {
         query = query.eq("company_id", selectedCompany)
       }
 
-      // Experience Level filter
       if (selectedExp) {
         query = query.eq("experience_level", selectedExp)
       }
 
-      // Min Salary filter
       if (minSalary) {
         const salaryVal = parseInt(minSalary, 10)
         if (!isNaN(salaryVal) && salaryVal > 0) {
@@ -137,7 +123,6 @@ export default function Jobs() {
         }
       }
 
-      // Range for pagination
       const from = (page - 1) * PAGE_SIZE
       const to = from + PAGE_SIZE - 1
       query = query.range(from, to)
@@ -158,7 +143,6 @@ export default function Jobs() {
     fetchJobs()
   }, [fetchJobs])
 
-  // Save / Unsave handler for Candidates
   const handleToggleSave = async (jobId) => {
     if (!user) {
       alert("Please login as a candidate to bookmark jobs.")
@@ -201,7 +185,6 @@ export default function Jobs() {
     }
   }
 
-  // Clear all filters
   const handleResetFilters = () => {
     setKeyword("")
     setSelectedLocation("")
@@ -231,7 +214,6 @@ export default function Jobs() {
 
   return (
     <PageTransition className="space-y-6">
-      {/* Header Banner */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-heading font-extrabold tracking-tight">
@@ -242,7 +224,6 @@ export default function Jobs() {
           </p>
         </div>
 
-        {/* Mobile toggle button */}
         <Button
           variant="outline"
           size="sm"
@@ -261,9 +242,7 @@ export default function Jobs() {
         </Button>
       </div>
 
-      {/* Filter Section */}
       <Card className={`p-4 sm:p-5 space-y-4 shadow-sm border bg-card/80 backdrop-blur-sm ${showMobileFilters ? "block" : "hidden sm:block"}`}>
-        {/* Main Search & Location Row */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <div className="relative">
             <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground pointer-events-none" />
@@ -308,7 +287,6 @@ export default function Jobs() {
           </select>
         </div>
 
-        {/* Second Row: Company, Experience, Salary, Clear */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 pt-1">
           <select
             className="w-full rounded-lg border border-input bg-background px-3 h-10 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
@@ -364,7 +342,6 @@ export default function Jobs() {
         </div>
       </Card>
 
-      {/* Results Header */}
       <div className="flex items-center justify-between text-xs sm:text-sm text-muted-foreground px-1">
         <span className="font-medium text-foreground">
           Showing <span className="text-primary font-semibold">{jobs.length}</span> of {totalCount} open positions
@@ -374,7 +351,6 @@ export default function Jobs() {
         </span>
       </div>
 
-      {/* Skeletons while loading */}
       {loading ? (
         <div className="space-y-3">
           {[1, 2, 3, 4].map((i) => (
@@ -396,7 +372,6 @@ export default function Jobs() {
           ))}
         </div>
       ) : jobs.length === 0 ? (
-        /* Empty State */
         <Card className="rounded-2xl border-dashed p-10 sm:p-14 text-center space-y-4 bg-card/40">
           <div className="h-12 w-12 rounded-2xl bg-muted/80 text-muted-foreground flex items-center justify-center mx-auto">
             <Inbox className="h-6 w-6" />
@@ -413,7 +388,6 @@ export default function Jobs() {
           </Button>
         </Card>
       ) : (
-        /* Staggered Jobs List */
         <motion.div
           variants={containerVariants}
           initial="hidden"
@@ -445,7 +419,7 @@ export default function Jobs() {
                         <p className="text-xs sm:text-sm font-medium text-muted-foreground mt-0.5 flex flex-wrap items-center gap-x-2">
                           <span className="font-semibold text-foreground/80 flex items-center gap-1">
                             <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
-                            {job.company?.name}
+                            {job.company?.name || "Company"}
                           </span>
                           <span>&bull;</span>
                           <span className="flex items-center gap-1">
@@ -476,7 +450,6 @@ export default function Jobs() {
                       </div>
                     </div>
 
-                    {/* Action buttons */}
                     <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-2 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0">
                       <span className="text-[11px] text-muted-foreground flex items-center gap-1">
                         <Calendar className="h-3 w-3" />

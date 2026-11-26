@@ -284,66 +284,20 @@ export default function PostJob() {
         </Card>
       )}
 
-      {!isVerified && (
+      {!isVerified && selectedCompany && (
         <Alert className="border-amber-500/40 bg-amber-500/10 text-amber-900 text-xs py-3">
           <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
-          <AlertDescription className="space-y-2">
-            <p className="font-semibold text-sm">Company verification pending approval</p>
+          <AlertDescription className="space-y-1">
+            <p className="font-semibold text-xs">Company verification review in progress</p>
             <p className="text-xs">
               {selectedCompany ? selectedCompany.name : "Your company"} is currently marked as{" "}
-              <strong>{selectedCompany?.verification_status || "pending"}</strong>. Only approved employer organizations are permitted to publish active job openings.
+              <strong>{selectedCompany?.verification_status || "pending"}</strong>. You can post and publish your job opening immediately under your active subscription plan.
             </p>
-            <div className="pt-2 flex flex-wrap gap-2">
-              <Link to="/dashboard">
-                <Button variant="outline" size="sm" className="h-8 text-xs font-semibold">
-                  ← Back to Dashboard
-                </Button>
-              </Link>
-              <Link to="/packages">
-                <Button
-                  variant="default"
-                  size="sm"
-                  className="h-8 text-xs font-semibold"
-                >
-                  Packages
-                </Button>
-              </Link>
-            </div>
           </AlertDescription>
         </Alert>
       )}
 
-      {!isVerified ? (
-        <Card className="shadow-lg border bg-card p-6 sm:p-8 text-center space-y-4">
-          <div className="h-12 w-12 rounded-2xl bg-amber-500/10 text-amber-600 flex items-center justify-center mx-auto">
-            <AlertTriangle className="h-6 w-6" />
-          </div>
-          <div className="space-y-1">
-            <h3 className="text-lg font-heading font-semibold text-foreground">
-              Employer Verification Required
-            </h3>
-            <p className="text-xs sm:text-sm text-muted-foreground max-w-sm mx-auto">
-              You cannot post jobs until your company is verified by an administrator. Please check back once approval is granted.
-            </p>
-          </div>
-          <div className="pt-2 flex flex-wrap justify-center gap-2">
-            <Link to="/dashboard">
-              <Button variant="outline" size="sm" className="h-9 px-4 font-semibold">
-                Back to Dashboard
-              </Button>
-            </Link>
-            <Link to="/packages">
-              <Button
-                size="sm"
-                className="h-9 px-4 font-semibold"
-              >
-                Subscription Packages
-              </Button>
-            </Link>
-          </div>
-        </Card>
-      ) : (
-        <Card className="shadow-lg border bg-card">
+      <Card className="shadow-lg border bg-card">
           <CardHeader className="space-y-1.5 pb-4">
             <div className="flex items-center gap-2">
               <div className="h-9 w-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold">
@@ -540,7 +494,6 @@ export default function PostJob() {
             </form>
           </CardContent>
         </Card>
-      )}
     </PageTransition>
   )
 }

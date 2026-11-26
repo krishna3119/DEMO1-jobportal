@@ -38,10 +38,9 @@ export default function Home() {
             salary_max,
             experience_level,
             created_at,
-            company:companies!inner(name, location, verification_status)
+            company:companies(name, location, verification_status)
           `)
           .eq("status", "open")
-          .eq("company.verification_status", "approved")
           .order("created_at", { ascending: false })
           .limit(3)
 
